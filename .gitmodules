@@ -1,0 +1,3 @@
+[submodule "caffe-crfrnn"]
+	path = caffe-crfrnn
+	url = https://github.com/mtourne/caffe
