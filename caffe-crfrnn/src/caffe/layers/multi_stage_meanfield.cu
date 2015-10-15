@@ -20,6 +20,33 @@
 #include "caffe/vision_layers.hpp"
 
 namespace caffe {
+  
+template <typename Dtype>
+__global__ void  computeBilateralKernel(const  int num_pixels_, 
+    const Dtype* const rgb_blob, 
+    const int width_, const int height_, const int channels_,
+    float theta_alpha_, float theta_beta_,
+    const int n, float* const output_kernel) {
+  int offset = ((n * channels_ ) * height_) * width_ ;
+  CUDA_KERNEL_LOOP(p, num_pixels_) {
+    output_kernel[5 * p] = (float)(p % width_) / theta_alpha_;
+    output_kernel[5 * p + 1] = (float)(p / width_) / theta_alpha_;
+    const Dtype * const rgb_data_start = rgb_blob + offset;
+    output_kernel[5 * p + 2] = (float)(rgb_data_start[p] / theta_beta_);
+    output_kernel[5 * p + 3] = (float)((rgb_data_start + num_pixels_)[p] / theta_beta_);
+    output_kernel[5 * p + 4] = (float)((rgb_data_start + num_pixels_ * 2)[p] / theta_beta_);
+  }
+}
+
+template <typename Dtype>
+__global__ void  computeSpatialKernel(const int num_pixels_,
+    float* const output_kernel,
+    float theta_gamma_, int width_) {
+  CUDA_KERNEL_LOOP(p, num_pixels_) {
+    output_kernel[2*p] = (float)(p % width_) / theta_gamma_;
+    output_kernel[2*p + 1] = (float)(p / width_) / theta_gamma_;
+  }
+}
 
 // TODO : can't be defined here
 template <typename Dtype>
@@ -176,33 +203,43 @@ void MultiStageMeanfieldLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom
  * top[0] - Output of the mean field inference (not normalized).
  */
 template <typename Dtype>
-void MultiStageMeanfieldLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+void MultiStageMeanfieldLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 
-  split_layer_bottom_vec_[0] = bottom[0];
+  const Dtype* bottom_data = bottom->gpu_data() ;
+  // TODO is it suppose to be constant ?
+  split_layer_bottom_vec_[0] = bottom[0]->mutable_gpu_data();
   split_layer_->Forward(split_layer_bottom_vec_, split_layer_top_vec_);
 
   // Initialize the bilateral lattices.
+  // TODO : here ?
   bilateral_lattices_.resize(num_);
   for (int n = 0; n < num_; ++n) {
-
-    compute_bilateral_kernel(bottom[2], n, bilateral_kernel_buffer_.get());
+    // TODO get method for permuthohedral
+    computeBilateralKernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+        num_pixels_, bottom_data, width_, height_, channels_,
+        theta_alpha_, theta_beta_, n,
+         bilateral_kernel_buffer_.get());
+    //TODO reset on GPUs ? init on GPU as well
     bilateral_lattices_[n].reset(new ModifiedPermutohedral());
     bilateral_lattices_[n]->init(bilateral_kernel_buffer_.get(), 5, num_pixels_);
 
     // Calculate bilateral filter normalization factors.
-    Dtype* norm_output_data = bilateral_norms_.mutable_cpu_data() + bilateral_norms_.offset(n);
+    // is it efficient ? yes
+    Dtype* norm_output_data = bilateral_norms_.mutable_gpu_data() + bilateral_norms_.offset(n);
+    // TODO compute 
     bilateral_lattices_[n]->compute(norm_output_data, norm_feed_.get(), 1);
+    // TODO : do that on the GPU
     for (int i = 0; i < num_pixels_; ++i) {
       norm_output_data[i] = 1.f / (norm_output_data[i] + 1e-20f);
     }
   }
 
   for (int i = 0; i < num_iterations_; ++i) {
-
+    //TODO : GPU
     meanfield_iterations_[i]->PrePass(this->blobs_, &bilateral_lattices_, &bilateral_norms_);
 
-    meanfield_iterations_[i]->Forward_cpu();
+    meanfield_iterations_[i]->Forward_gpu();
   }
 }
 
@@ -238,29 +275,7 @@ void MultiStageMeanfieldLayer<Dtype>::Backward_cpu(
   }
 }
 
-template<typename Dtype>
-void MultiStageMeanfieldLayer<Dtype>::compute_bilateral_kernel(const Blob<Dtype>* const rgb_blob, const int n,
-                                                               float* const output_kernel) {
 
-  for (int p = 0; p < num_pixels_; ++p) {
-    output_kernel[5 * p] = static_cast<float>(p % width_) / theta_alpha_;
-    output_kernel[5 * p + 1] = static_cast<float>(p / width_) / theta_alpha_;
-
-    const Dtype * const rgb_data_start = rgb_blob->cpu_data() + rgb_blob->offset(n);
-    output_kernel[5 * p + 2] = static_cast<float>(rgb_data_start[p] / theta_beta_);
-    output_kernel[5 * p + 3] = static_cast<float>((rgb_data_start + num_pixels_)[p] / theta_beta_);
-    output_kernel[5 * p + 4] = static_cast<float>((rgb_data_start + num_pixels_ * 2)[p] / theta_beta_);
-  }
-}
-
-template <typename Dtype>
-void MultiStageMeanfieldLayer<Dtype>::compute_spatial_kernel(float* const output_kernel) {
-
-  for (int p = 0; p < num_pixels_; ++p) {
-    output_kernel[2*p] = static_cast<float>(p % width_) / theta_gamma_;
-    output_kernel[2*p + 1] = static_cast<float>(p / width_) / theta_gamma_;
-  }
-}
 
 INSTANTIATE_LAYER_GPU_FUNCS(MultiStageMeanfieldLayer);
 
