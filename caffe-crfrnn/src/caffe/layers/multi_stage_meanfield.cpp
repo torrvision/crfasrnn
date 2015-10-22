@@ -90,12 +90,14 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
   float spatial_kernel[2 * num_pixels_];
   compute_spatial_kernel(spatial_kernel);
   spatial_lattice_.reset(new ModifiedPermutohedral());
+  //TODO init_gpu or cpu ?
   spatial_lattice_->init(spatial_kernel, 2, num_pixels_);
 
   // Calculate spatial filter normalization factors.
   norm_feed_.reset(new Dtype[num_pixels_]);
   caffe_set(num_pixels_, Dtype(1.0), norm_feed_.get());
   spatial_norm_.Reshape(1, 1, height_, width_);
+  // TODO : parse blob to gpu and norm_data ?
   Dtype* norm_data = spatial_norm_.mutable_cpu_data();
   spatial_lattice_->compute(norm_data, norm_feed_.get(), 1);
   for (int i = 0; i < num_pixels_; ++i) {
