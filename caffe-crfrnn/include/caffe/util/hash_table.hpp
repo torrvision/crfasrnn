@@ -32,8 +32,10 @@ class HashTable
     HashTable() : create(false) {}
     
     void createHashTable(const int capacity, const int kd, const int vd){
-      // Initialize table_capacity
+      
+      #ifndef CPU_ONLY
       // TODO? use symbol to go in constant memory instead
+      // Initialize table_capacity
       CUDA_CHECK(cudaMalloc((void **) &table_capacity, 1));
       CUDA_CHECK(cudaMemCpy(table_capacity, &capacity, sizeof(unsigned int), CudaMemcpyHostToDevice));
 
@@ -61,26 +63,32 @@ class HashTable
       #endif
       // Set create to true
       create = true;
+      #endif // CPU_ONLY
     }
     
     void resetHashTable(){
+      #ifndef CPU_ONLY
       CUDA_CHECK(cudaMemset((void*)table_values, 0, table_capacity*vd*sizeof(float)));
+      #endif //CPU_ONLY
     }
     
     ~HashTable(){
+      #ifndef CPU_ONLY
       if(create){
         // Free all pointers
-        CUDA_CHECK(cudaFree(tale_values));
-        CUDA_CHECK(cudaFree(tale_entries));
-        CUDA_CHECK(cudaFree(tale_capacity));
+        CUDA_CHECK(cudaFree(table_values));
+        CUDA_CHECK(cudaFree(table_entries));
+        CUDA_CHECK(cudaFree(table_capacity));
         #ifdef LINEAR_D_MEMORY
-        CUDA_CHECK(cudaFree(tale_zeros));
-        CUDA_CHECK(cudaFree(tale_rank));
+        CUDA_CHECK(cudaFree(table_zeros));
+        CUDA_CHECK(cudaFree(table_rank));
         #else
-        CUDA_CHECK(cudaFree(tale_keys));
+        CUDA_CHECK(cudaFree(table_keys));
         #endif
         }
+      #endif //CPU_ONLY
     }
 
+};
 }//namespace caffe
 #endif //CAFFE_HASH_TABLE_HPP
