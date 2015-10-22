@@ -9,17 +9,12 @@
 #include <cmath>
 #include "caffe/common.hpp"
 #include "caffe/util/device_alternate.hpp"
-#include "caffe/util/MirroredArray.hpp"
 #include "caffe/util/hash_table.hpp"
+
 /************************************************/
 /***          ModifiedPermutohedral Lattice   ***/
 /************************************************/
 namespace caffe {
-
-typedef struct MatrixEntry {
-  int index;
-  float weight;
-} Matrix;
 
 class ModifiedPermutohedral
 {
@@ -29,6 +24,10 @@ protected:
 		Neighbors( int n1=0, int n2=0 ):n1(n1),n2(n2){
 		}
 	};
+	typedef struct MatrixEntry {
+        int index;
+        float weight;
+      } Matrix;
 	std::vector<int> offset_, rank_;
 	std::vector<float> barycentric_;
 	std::vector<Neighbors> blur_neighbors_;
@@ -53,7 +52,7 @@ protected:
 public:
 	ModifiedPermutohedral();
 	void init (const float* features, int num_dimensions, int num_points){
-	  init_cpu(const float* features, int num_dimensions, int num_points); 
+	  init_cpu(features, num_dimensions, num_points); 
 	}
 	void compute(float* out, const float* in, int value_size, bool reverse = false, bool add = false) const;
 	void compute(double* out, const double* in, int value_size, bool reverse = false, bool add = false) const;
