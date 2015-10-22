@@ -105,7 +105,7 @@ public:
 ModifiedPermutohedral::ModifiedPermutohedral():N_( 0 ), M_( 0 ), d_( 0 ) {
 }
 #ifdef SSE_PERMUTOHEDRAL
-void ModifiedPermutohedral::init(const float* features, int num_dimensions, int num_points)
+void ModifiedPermutohedral::init_cpu(const float* features, int num_dimensions, int num_points)
 {
 	// Compute the lattice coordinates for each feature [there is going to be a lot of magic here
 	N_ = num_points;
@@ -288,7 +288,7 @@ void ModifiedPermutohedral::init(const float* features, int num_dimensions, int 
 	delete[] n2;
 }
 #else
-void ModifiedPermutohedral::init (const float* features, int num_dimensions, int num_points)
+void ModifiedPermutohedral::init_cpu(const float* features, int num_dimensions, int num_points)
 {
 	// Compute the lattice coordinates for each feature [there is going to be a lot of magic here
 	N_ = num_points;
