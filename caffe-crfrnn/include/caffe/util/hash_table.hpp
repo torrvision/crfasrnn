@@ -37,7 +37,7 @@ class HashTable
       // TODO? use symbol to go in constant memory instead
       // Initialize table_capacity
       CUDA_CHECK(cudaMalloc((void **) &table_capacity, 1));
-      CUDA_CHECK(cudaMemCpy(table_capacity, &capacity, sizeof(unsigned int), CudaMemcpyHostToDevice));
+      CUDA_CHECK(cudaMemCpy(table_capacity, &capacity, sizeof(unsigned int), cudaMemcpyHostToDevice));
 
       // Initialize table_values
       CUDA_CHECK(cudaMalloc((void **) &table_values, capacity*vd*sizeof(float)));
