@@ -27,13 +27,13 @@ protected:
 	typedef struct MatrixEntry {
         int index;
         float weight;
-      } Matrix;
+      } MatrixEntry;
 	std::vector<int> offset_, rank_;
 	std::vector<float> barycentric_;
 	std::vector<Neighbors> blur_neighbors_;
 	
 	// GPU specific
-      Matrix *matrix;
+      MatrixEntry *matrix;
       HashTable table;
 
 	
@@ -52,7 +52,16 @@ protected:
 public:
 	ModifiedPermutohedral();
 	void init (const float* features, int num_dimensions, int num_points){
-	  init_cpu(features, num_dimensions, num_points); 
+	  switch (Caffe::mode()) {
+          case Caffe::CPU:
+		init_cpu(features, num_dimensions, num_points); 
+            break;
+          case Caffe::GPU:
+            init_gpu(features, num_dimensions, num_points); 
+            break;
+          default:
+            LOG(FATAL) << "Unknown caffe mode.";
+        }	  
 	}
 	void compute(float* out, const float* in, int value_size, bool reverse = false, bool add = false) const;
 	void compute(double* out, const double* in, int value_size, bool reverse = false, bool add = false) const;
