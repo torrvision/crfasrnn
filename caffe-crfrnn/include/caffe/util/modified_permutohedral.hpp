@@ -14,7 +14,13 @@
 /************************************************/
 /***          ModifiedPermutohedral Lattice   ***/
 /************************************************/
+// TODO : free GPU memory when deconstruct
 namespace caffe {
+
+typedef struct MatrixEntry {
+  int index;
+  float weight;
+} MatrixEntry;
 
 class ModifiedPermutohedral
 {
@@ -24,10 +30,7 @@ protected:
 		Neighbors( int n1=0, int n2=0 ):n1(n1),n2(n2){
 		}
 	};
-	typedef struct MatrixEntry {
-        int index;
-        float weight;
-      } MatrixEntry;
+
 	std::vector<int> offset_, rank_;
 	std::vector<float> barycentric_;
 	std::vector<Neighbors> blur_neighbors_;
@@ -56,9 +59,11 @@ public:
           case Caffe::CPU:
 		init_cpu(features, num_dimensions, num_points); 
             break;
+          #ifndef CPU_ONLY
           case Caffe::GPU:
             init_gpu(features, num_dimensions, num_points); 
             break;
+          #endif
           default:
             LOG(FATAL) << "Unknown caffe mode.";
         }	  
