@@ -6,18 +6,22 @@
 #include "caffe/syncedmem.hpp"
 #include "caffe/util/hash_helper.cu"
 
-//TODO include w and h in Modified permutohedral def
-
 namespace caffe {
 
-__global__ static void createMatrix(const int num_points, const int pd
+template<int pd>
+__global__ static void createMatrix(int num_points,
 				    const float *positions,
+				    int *table_entries,
+				    int table_capacity,
+				    signed short* table_keys,				    
 				    const float *scaleFactor,
-				    MatrixEntry *matrix) {
-
+				    MatrixEntry *matrix)
+{
     // scanline order
     const int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     const bool outOfBounds = (idx>=num_points) ;
+    // TODO : change that!!!
+    const int threadId = idx;
 
     // 8x8 blocks
     //const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -96,13 +100,6 @@ __global__ static void createMatrix(const int num_points, const int pd
 	    }
 	}
 
-        #ifdef LINEAR_D_MEMORY
-	for (int i = 0; i <= pd; i++) {
-	    table_zeros[idx*(pd+1)+i] = myGreedy[i];
-	    table_rank[idx*(pd+1)+i] = myRank[i];
-	}
-	#endif
-
 	// turn delta into barycentric coords
 	for (int i = 0; i <= pd+1; i++) {
 	    myBarycentric[i] = 0;
@@ -138,9 +135,11 @@ __global__ static void createMatrix(const int num_points, const int pd
 	if (!outOfBounds) {
 	    MatrixEntry r;
 	    #ifdef USE_ADDITIVE_HASH
-	    r.index = hashTableInsert<pd>(cumulative_hash, myKey, idx*(pd+1)+color);
+	    r.index = hashTableInsert(cumulative_hash, myKey, table_keys,
+    		table_entries, table_capacity,  idx*(pd+1)+color,pd);
 	    #else
-	    r.index = hashTableInsert<pd>(myKey, idx*(pd+1)+color);
+	    r.index = hashTableInsert(myKey, table_keys, table_entries,
+    		table_capacity,  idx*(pd+1)+color,pd);
 	    #endif
 	    r.weight = myBarycentric[color];
 	    matrix[idx*(pd+1) + color] = r;
@@ -148,8 +147,13 @@ __global__ static void createMatrix(const int num_points, const int pd
     }
 }
 
-
-__global__ static void cleanHashTable(int n, int kd, MatrixEntry *matrix) {
+template<int kd>
+__global__ static void cleanHashTable(int n,
+				    int *table_entries,
+				    int table_capacity,
+				    signed short* table_keys,
+				    MatrixEntry *matrix)
+{
     const int idx = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x * blockDim.y + threadIdx.x;
 
     if (idx >= n) return;
@@ -165,42 +169,36 @@ __global__ static void cleanHashTable(int n, int kd, MatrixEntry *matrix) {
 	// happen, but sometimes race conditions can make the same key
 	// be inserted twice. hashTableRetrieve always returns the
 	// earlier, so it's no problem as long as we rehash now.
-
-        #ifdef LINEAR_D_MEMORY
-        // Get my key
-        short myKey[kd];
-        generateKey<kd>(*e, myKey);
-	*e = hashTableRetrieve<kd>(myKey);
-        #else
-	*e = hashTableRetrieve<kd>(table_keys + *e*kd);
-	#endif
+	*e = hashTableRetrieve(table_keys + *e*kd,
+	        table_entries, table_keys, table_capacity, kd);
     }
 }
 
-void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, int num_points) {
-
+template<int pd>
+void gpu_init(const float* features, HashTable table, MatrixEntry* matrix, int num_points)
+{
     unsigned int blocks = (num_points-1)/64 + 1;
     unsigned int blockSize = 64;
     float blurVariance = 0.5 ;
     float * scaleFactor;
-    float* scaleFactorHost = new float[num_dimensions];
+    float* scaleFactorHost = new float[pd];
     
     // Create Scale factor vector and give it to GPU
     // num_dimensions is likely to be low so do that 
     // on the CPU
-    for (int i = 0; i < num_dimensions; i++) {
-	scaleFactorHost[i] = (num_dimensions+1)*sqrtf((1.0/6 + blurVariance)/((i+1)*(i+2)));
+    for (int i = 0; i < pd; i++) {
+	scaleFactorHost[i] = (pd+1)*sqrtf((1.0/6 + blurVariance)/((i+1)*(i+2)));
     }
-    CUDA_CHECK(cudaMalloc((void**)&scaleFactor, sizeof(float)*num_dimensions));
-    CUDA_CHECK(cudaMemCpy(scaleFactor, scaleFactorHost, sizeof(float)*num_dimensions, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMalloc((void**)&scaleFactor, sizeof(float)*pd));
+    CUDA_CHECK(cudaMemcpy(scaleFactor, scaleFactorHost, sizeof(float)*pd, cudaMemcpyHostToDevice));
     
-    // Allocate matrix and create hash table
-    CUDA_CHECK(cudaMalloc((void **)&matrix, sizeof(Matrix)*(num_points*(num_dimensions+1))));
-    table.createHashTable(num_points*(num_dimensions+1), num_dimensions, 3);
+    // Allocate matrix
+    CUDA_CHECK(cudaMalloc((void **)&matrix, sizeof(MatrixEntry)*(num_points*(pd+1))));
+    
 
     // Populate memory for hash helpers
     unsigned long long int __host_two32 = ((unsigned long long int)1)<<32;
-    unsigned int __host_div_c = 2*(num_points*(num_dimensions+1));
+    unsigned int __host_div_c = 2*(num_points*(pd+1));
     unsigned int __host_div_l = ceilf(logf((float)__host_div_c) / logf(2.0f));
     unsigned int __host_div_m = (__host_two32<<__host_div_l)/__host_div_c - __host_two32 + 1;
     /*CUDA_CHECK(cudaMemcpy((char*)&__div_c, &__host_div_c, sizeof(unsigned int)));
@@ -216,22 +214,42 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
     }
     CUDA_CHECK(cudaMemcpyToSymbol((char*)&hOffset, &hOffset_host, sizeof(unsigned int)*(num_dimensions+1)));
 */
-//TODO hash and hashtable insert
-    createMatrix<num_dimensions><<<blocks, blockSize>>>(num_dimensions, features,
+
+    createMatrix<pd><<<blocks, blockSize>>>(num_points,
+    					    features,
+    					    table.table_entries,
+    					    table.table_capacity,
+    					    table.table_keys,
 					    scaleFactor,
 					    matrix);
     CUDA_POST_KERNEL_CHECK;
 
     // fix duplicate hash table entries
     int cleanBlockSize = 32;
-    dim3 cleanBlocks((num_points-1)/cleanBlockSize+1, 2*(num_dimensions+1), 1);
-    cleanHashTable<<<cleanBlocks, cleanBlockSize>>>(2*num_points*(num_dimensions+1), num_dimensions, matrix);
+    dim3 cleanBlocks((num_points-1)/cleanBlockSize+1, 2*(pd+1), 1);
+    cleanHashTable<pd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1),
+         table.table_entries, table.table_capacity, table.table_keys,
+         matrix);
     CUDA_POST_KERNEL_CHECK;
     
     // Clean intermediate variables
     // TODO : see what can be further cleaned
     delete[] scaleFactorHost;
     CUDA_CHECK(cudaFree(scaleFactor));
+}
+
+void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, int num_points) {
+  //Initialize Hash table
+  table.createHashTable(num_points*(num_dimensions+1), num_dimensions, 1);
+  switch(num_dimensions){
+    case 2:
+      gpu_init<2>(features, table, matrix,  num_points);
+      break;
+    case 5:
+      gpu_init<5>(features, table, matrix, num_points);
+    default:
+      LOG(FATAL) << "num_dimensions should be 2 or 5";
+  } 
 }
 
 }//namespace caffe
