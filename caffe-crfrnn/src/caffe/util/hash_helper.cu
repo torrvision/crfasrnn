@@ -1,8 +1,15 @@
+#include <cstdlib>
+#include <vector>
+#include <cassert>
+#include <cstdio>
+#include "caffe/common.hpp"
+#include "caffe/util/device_alternate.hpp"
+
 
 /*************************************************************/
 /* Fast computation of modulo operator with constant divisor */
 /*************************************************************/
-__device__ __constant__ unsigned int __div_m;
+/*__device__ __constant__ unsigned int __div_m;
 __device__ __constant__ unsigned int __div_l;
 __device__ __constant__ unsigned int __div_c;
 
@@ -11,17 +18,19 @@ __device__ inline unsigned int modHash(unsigned int n) {
   unsigned int t1 = __umulhi(__div_m, n);
   return n - ((t1+((n-t1)>>1))>>(__div_l-1)) * __div_c;
 }
+*/
 
-#else
+namespace caffe {
+
+
 #define modHash(n) ((n)%(2*table_capacity));
-#endif
+
 
 /*************************************************************/
 /* End modulo                                                */
 /*************************************************************/
 
-__device__ __constant__ unsigned int hOffset[64];
-
+//__device__ __constant__ unsigned int hOffset[64];
 
 __device__ __host__ static unsigned int hash(signed short *key, int kd) {
     unsigned int k = 0; 
@@ -32,7 +41,7 @@ __device__ __host__ static unsigned int hash(signed short *key, int kd) {
     return k;
 }
 
-template<int kd> __device__ __host__ static unsigned int hash(int *key) {
+__device__ __host__ static unsigned int hash(int *key, int kd) {
     unsigned int k = 0; 
     for (int i = 0; i < kd; i++) {
 	k += key[i];
@@ -40,7 +49,7 @@ template<int kd> __device__ __host__ static unsigned int hash(int *key) {
     }
     return k;
 }
-
+/*
 template<int d> __device__ static bool matchKey(int idx, signed short * key) {
     bool match = true;
     int slot = idx/(d+1), color = idx-slot*(d+1);
@@ -51,17 +60,9 @@ template<int d> __device__ static bool matchKey(int idx, signed short * key) {
     }
     return match;
 }
+*/
 
-
-template<int d> __device__ static void generateKey(int idx, signed short * key) {
-    int slot = idx/(d+1), color = idx-slot*(d+1);
-    char *rank = table_rank + slot * (d+1);
-    signed short *zero = table_zeros + slot * (d+1);
-    for (int i = 0; i < d; i++) {
-	key[i] = zero[i] + color - (rank[i] > d-color ? (d+1) : 0);
-    }
-}
-
+/*
 static float* swapHashTableValues(float *newValues) {
     float * oldValues;
     CUDA_SAFE_CALL(cudaMemcpyFromSymbol(&oldValues,
@@ -72,10 +73,15 @@ static float* swapHashTableValues(float *newValues) {
 				      sizeof(float *)));
     return oldValues;
 }
+*/
 
-
-template<int kd>
-__device__ static int hashTableInsert(unsigned int fh, signed short *key, unsigned int slot) {	
+__device__ static int hashTableInsert(unsigned int fh, signed short *key,
+    signed short* table_keys,
+    int* table_entries,
+    int table_capacity, 
+    unsigned int slot, 
+    int kd) 
+{    	
     int h = modHash(fh);
     while (1) {
 	int *e = &table_entries[h];
@@ -89,11 +95,9 @@ __device__ static int hashTableInsert(unsigned int fh, signed short *key, unsign
 	} else if (contents == -1) { 
 	    // If it was empty, we successfully locked it. Write our key.
 
-	    #ifndef LINEAR_D_MEMORY
 	    for (int i = 0; i < kd; i++) {
 		table_keys[slot*kd+i] = key[i];
 	    }
-	    #endif
 
 	    // Unlock
 	    atomicExch(e, slot); 
@@ -101,15 +105,15 @@ __device__ static int hashTableInsert(unsigned int fh, signed short *key, unsign
 	    return h;
 	} else {
 	    // The cell is unlocked and has a key in it, check if it matches
-            #ifdef LINEAR_D_MEMORY
- 	    if (matchKey<kd>(contents, key)) return h;
-            #else
+          //  #ifdef LINEAR_D_MEMORY
+ 	    //if (matchKey<kd>(contents, key)) return h;
+          //  #else
 	    bool match = true;
 	    for (int i = 0; i < kd && match; i++) {
 		match = (table_keys[contents*kd+i] == key[i]);
 	    }
 	    if (match) return h;
-            #endif       
+          //  #endif       
 
 	}
 	// increment the bucket with wraparound
@@ -118,14 +122,19 @@ __device__ static int hashTableInsert(unsigned int fh, signed short *key, unsign
     }
 }
 
-template<int kd>
-__device__ static int hashTableInsert(signed short *key, unsigned int slot) {
-    unsigned int myHash = hash<kd>(key);
-    return hashTableInsert<kd>(myHash, key, slot);
+__device__ static int hashTableInsert(signed short *key, 
+    signed short* table_keys,
+    int* table_entries,
+    int table_capacity, 
+    unsigned int slot, 
+    int kd) 
+{
+    unsigned int myHash = hash(key, kd);
+    return hashTableInsert(myHash, key, table_keys, table_entries, table_capacity, slot, kd);
 }
 
 
-
+/*
 template<int kd> __device__ static
 int hashTableRetrieveWithHash(unsigned int fh, signed short *key) {
   int h = modHash(fh);
@@ -148,27 +157,29 @@ int hashTableRetrieveWithHash(unsigned int fh, signed short *key) {
     if (h == table_capacity*2) h = 0;
   }
 }
-   
-template<int kd>
-__device__ static int hashTableRetrieve(signed short *key) {
+   */
 
-    int h = modHash(hash<kd>(key));
+__device__ static int hashTableRetrieve(signed short *key,
+	  int* table_entries,
+	  signed short* table_keys,
+	  int table_capacity,
+        int kd) 
+{
+    int h = modHash(hash(key, kd));
     while (1) {
 	int *e = table_entries + h;
 
 	if (*e == -1) return -1;
 
-	#ifdef LINEAR_D_MEMORY
-	if (matchKey<kd>((*e), key)) return *e;
-	#else
 	bool match = true;
 	for (int i = 0; i < kd && match; i++) {
 	    match = (table_keys[(*e)*kd+i] == key[i]);
 	}
 	if (match) return *e;
-	#endif
 
 	h++;
 	if (h == table_capacity*2) h = 0;
     }
 }
+
+} //namespace caffe
