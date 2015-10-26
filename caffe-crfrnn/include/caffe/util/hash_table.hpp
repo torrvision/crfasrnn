@@ -19,7 +19,6 @@ namespace caffe{
 class HashTable
 {
   public:
-    float *table_values;
     int *table_entries;
     unsigned int table_capacity;
     signed short *table_keys;
@@ -27,15 +26,11 @@ class HashTable
 
     HashTable() : create(false) {}
     
-    void createHashTable(const int capacity, const int kd, const int vd){
+    void createHashTable(const int capacity, const int kd){
       #ifndef CPU_ONLY
       // TODO? use symbol to go in constant memory instead
       // Initialize table_capacity
       table_capacity = (unsigned int)capacity ;
-
-      // Initialize table_values
-      CUDA_CHECK(cudaMalloc((void **) &table_values, capacity*vd*sizeof(float)));
-      CUDA_CHECK(cudaMemset(table_values, 0, capacity*vd*sizeof(float)));
       
       // Initialize table_entries
       CUDA_CHECK(cudaMalloc((void **) &table_entries, 2*capacity*sizeof(int)));
@@ -50,17 +45,10 @@ class HashTable
       #endif // CPU_ONLY
     }
     
-    void resetHashTable(int vd){
-      #ifndef CPU_ONLY
-      CUDA_CHECK(cudaMemset((void*)table_values, 0, table_capacity*vd*sizeof(float)));
-      #endif //CPU_ONLY
-    }
-    
     ~HashTable(){
       #ifndef CPU_ONLY
       if(create){
-        // Free all pointers
-        CUDA_CHECK(cudaFree(table_values));
+        // Free pointers allocated during 
         CUDA_CHECK(cudaFree(table_entries));
         CUDA_CHECK(cudaFree(table_keys));
         }
