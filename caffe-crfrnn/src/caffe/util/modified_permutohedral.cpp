@@ -725,7 +725,7 @@ void ModifiedPermutohedral::sseCompute(double* out, const double* in, int value_
 #endif
 
 
-void ModifiedPermutohedral::compute (float* out, const float* in, int value_size, bool reverse, bool add) const
+void ModifiedPermutohedral::compute_cpu (float* out, const float* in, int value_size, bool reverse, bool add) const
 {
 	if (value_size <= 2)
 		seqCompute(out, in, value_size, reverse, add);
@@ -733,7 +733,7 @@ void ModifiedPermutohedral::compute (float* out, const float* in, int value_size
 		sseCompute(out, in, value_size, reverse, add);
 }
 
-void ModifiedPermutohedral::compute (double* out, const double* in, int value_size, bool reverse, bool add) const
+void ModifiedPermutohedral::compute_cpu (double* out, const double* in, int value_size, bool reverse, bool add) const
 {
   if (value_size <= 2)
     seqCompute(out, in, value_size, reverse, add);
