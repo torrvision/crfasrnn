@@ -405,7 +405,6 @@ void gpu_init(const float* features, HashTable* table, MatrixEntry* matrix, int 
     resetIndex<pd><<<blocks, blockSize>>>(w, h, matrix, table->table_entries) ;
     
     // Clean intermediate variables
-    // TODO : see what can be further cleaned
     delete[] scaleFactorHost;
     CUDA_CHECK(cudaFree(scaleFactor));
 }
