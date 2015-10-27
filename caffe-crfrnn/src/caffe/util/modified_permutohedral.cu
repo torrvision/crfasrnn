@@ -482,7 +482,6 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
   } 
 }
 
-
 void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add)  {
   switch(1000*value_size+d_){
     case 1002: gpu_compute<1, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
@@ -494,12 +493,11 @@ void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_s
     case 21002: gpu_compute<21, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
     case 21005: gpu_compute<21, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
     default:
-      LOG(FATAL) << "num_dimensions should be 1 or 3";
+      LOG(FATAL) << "num_dimensions should be 1, 3 or 21";
   } 
 }
 
 void ModifiedPermutohedral::compute_gpu(double* out, const double* in, int value_size, bool reverse, bool add)  {
- 
 //TODO : view that later on 
   /*switch(1000*value_size+d_){
     case 1002: gpu_compute<1, 2, double>(out, in, table, matrix, w_, h_); break;
@@ -512,6 +510,5 @@ void ModifiedPermutohedral::compute_gpu(double* out, const double* in, int value
       LOG(FATAL) << "num_dimensions should be 1 or 3";
   } */
 }
-
 
 }//namespace caffe
