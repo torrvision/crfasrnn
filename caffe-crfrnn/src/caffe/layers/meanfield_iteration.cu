@@ -98,7 +98,7 @@ void MeanfieldIteration<Dtype>::Backward_gpu() {
   sum_layer_->Backward(sum_top_vec_, eltwise_propagate_down, sum_bottom_vec_);
 
   //---------------------------- Update compatibility diffs ------------------
-  caffe_set(this->blobs_[2]->count(), Dtype(0.), this->blobs_[2]->mutable_gpu_diff());
+  caffe_gpu_set(this->blobs_[2]->count(), Dtype(0.), this->blobs_[2]->mutable_gpu_diff());
 
   for (int n = 0; n < num_; ++n) {
     caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasTrans, channels_, channels_,
@@ -116,8 +116,8 @@ void MeanfieldIteration<Dtype>::Backward_gpu() {
   }
 
   // ------------------------- Gradient w.r.t. kernels weights ------------
-  caffe_set(this->blobs_[0]->count(), Dtype(0.), this->blobs_[0]->mutable_gpu_diff());
-  caffe_set(this->blobs_[1]->count(), Dtype(0.), this->blobs_[1]->mutable_gpu_diff());
+  caffe_gpu_set(this->blobs_[0]->count(), Dtype(0.), this->blobs_[0]->mutable_gpu_diff());
+  caffe_gpu_set(this->blobs_[1]->count(), Dtype(0.), this->blobs_[1]->mutable_gpu_diff());
 
   for (int n = 0; n < num_; ++n) {
     caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasTrans, channels_, channels_,
