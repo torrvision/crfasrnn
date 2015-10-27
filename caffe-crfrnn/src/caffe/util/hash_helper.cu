@@ -49,31 +49,13 @@ __device__ __host__ static unsigned int hash(int *key, int kd) {
     }
     return k;
 }
-/*
-template<int d> __device__ static bool matchKey(int idx, signed short * key) {
-    bool match = true;
-    int slot = idx/(d+1), color = idx-slot*(d+1);
-    char *rank = table_rank + slot * (d+1);
-    signed short *zero = table_zeros + slot * (d+1);
-    for (int i = 0; i < d && match; i++) {
-	match = (key[i] == zero[i] + color - (rank[i] > d-color ? (d+1) : 0));
-    }
-    return match;
-}
-*/
 
-/*
-static float* swapHashTableValues(float *newValues) {
-    float * oldValues;
-    CUDA_SAFE_CALL(cudaMemcpyFromSymbol(&oldValues,
-					table_values,
-					sizeof(float *)));
-    CUDA_SAFE_CALL(cudaMemcpyToSymbol(table_values,
-				      &newValues,
-				      sizeof(float *)));
-    return oldValues;
+static void swapHashTableValues(float* oldValues, float *newValues, float* table_values,size_t size) {
+  CUDA_CHECK(cudaMemcpy(oldValues,table_values,size,cudaMemcpyDeviceToDevice));
+  CUDA_CHECK(cudaMemcpy(table_values,newValues,size,cudaMemcpyDeviceToDevice));
+  CUDA_CHECK(cudaMemcpy(newValues,oldValues,size,cudaMemcpyDeviceToDevice));
 }
-*/
+
 
 __device__ static int hashTableInsert(unsigned int fh, signed short *key,
     signed short* table_keys,
@@ -134,36 +116,33 @@ __device__ static int hashTableInsert(signed short *key,
 }
 
 
-/*
-template<int kd> __device__ static
-int hashTableRetrieveWithHash(unsigned int fh, signed short *key) {
+
+template<int kd> 
+__device__ static int hashTableRetrieveWithHash(unsigned int fh, signed short *key,
+	  int* table_entries,
+	  signed short* table_keys,
+	  int table_capacity) {
   int h = modHash(fh);
   while (1) {
     int *e = table_entries + h;
     
     if (*e == -1) return -1;
     
-    #ifdef LINEAR_D_MEMORY
-    if (matchKey<kd>((*e), key)) return *e;
-    #else
     bool match = true;
     for (int i = 0; i < kd && match; i++) {
       match = (table_keys[(*e)*kd+i] == key[i]);
     }
     if (match) return *e;
-    #endif
-    
     h++;
     if (h == table_capacity*2) h = 0;
   }
 }
-   */
 
+template<int kd>
 __device__ static int hashTableRetrieve(signed short *key,
 	  int* table_entries,
 	  signed short* table_keys,
-	  int table_capacity,
-        int kd) 
+	  int table_capacity) 
 {
     int h = modHash(hash(key, kd));
     while (1) {
