@@ -207,7 +207,7 @@ __global__ static void splatCache(const int w, const int h,
 
     if (!outOfBounds) {
 
-	const float *value = values + idx*vd;
+	const float *value = values + idx;
 
 	MatrixEntry r = matrix[idx*(pd+1)+color];
 
@@ -217,7 +217,7 @@ __global__ static void splatCache(const int w, const int h,
 	myOffset = sharedOffsets[threadId] = r.index*(vd+1);
 
 	for (int j = 0; j < vd; j++) {
-	    myValue[j] = value[j]*r.weight;
+	    myValue[j] = value[j*w*h]*r.weight;
 	}
 	myValue[vd] = r.weight;
 
@@ -317,7 +317,11 @@ __global__ static void blur(int n, float *newValues, MatrixEntry *matrix,
 }
 
 template<int pd, int vd>
-__global__ static void slice(const int w, const int h, float *values, MatrixEntry *matrix, float *table_values) {
+__global__ static void slice(const int w, const int h,
+  float *values, 
+  MatrixEntry *matrix, 
+  float *table_values,
+  bool add) {
     //const int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
 
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -346,9 +350,13 @@ __global__ static void slice(const int w, const int h, float *values, MatrixEntr
 	myWeight += r.weight*val[vd];
     }
 
-    myWeight = 1.0f/myWeight;
-    for (int j = 0; j < vd; j++)
-	values[idx*vd + j] = myValue[j]*myWeight;
+    //myWeight = 1.0f/myWeight;
+    float alpha = 1.0f / (1+powf(2, -pd));
+    for (int j = 0; j < vd; j++){
+      if(!add)
+        values[j*w*h + idx] = 0;
+	values[j*w*h + idx] += myValue[j]*alpha;
+    }
 }
 
 
@@ -410,7 +418,10 @@ void gpu_init(const float* features, HashTable* table, MatrixEntry* matrix, int 
 }
 
 template<int vd, int pd, typename Dtype>
-void gpu_compute(Dtype* out, const Dtype* in, HashTable* table, MatrixEntry* matrix, int w, int h){
+void gpu_compute(Dtype* out, const Dtype* in, HashTable* table,
+  MatrixEntry* matrix, 
+  int w, int h, 
+  bool reverse, bool add){
 
   // Create table_values
   int num_points = w*h ;
@@ -423,7 +434,6 @@ void gpu_compute(Dtype* out, const Dtype* in, HashTable* table, MatrixEntry* mat
   
   // splat splits by color, so extend the y coordinate to our blocks to represent that
   blocks.y *= pd+1;
-  //TODO : use in or out ?
   splatCache<pd, vd><<<blocks, blockSize>>>(w, h, in, matrix,
    table->table_entries,
    table_values);
@@ -439,7 +449,7 @@ void gpu_compute(Dtype* out, const Dtype* in, HashTable* table, MatrixEntry* mat
   CUDA_CHECK(cudaMalloc((void**)&(newValues), size));
   CUDA_CHECK(cudaMalloc((void**)&(oldValues), size));
   CUDA_CHECK(cudaMemset(newValues, 0, size));
-  for (int color = 0; color <= pd; color++) {
+  for (int color = reverse?pd:0; color <= pd && color>=0; reverse?color--:color++) {
     blur<pd, vd><<<cleanBlocks, cleanBlockSize>>>(num_points*(pd+1), newValues,
      matrix,
      table->table_entries,
@@ -453,7 +463,7 @@ void gpu_compute(Dtype* out, const Dtype* in, HashTable* table, MatrixEntry* mat
 
   // slice
   blocks.y /= (pd+1);
-  slice<pd, vd><<<blocks, blockSize>>>(w, h, out, matrix, table_values);
+  slice<pd, vd><<<blocks, blockSize>>>(w, h, out, matrix, table_values, add);
   CUDA_POST_KERNEL_CHECK;
   
   // Free memory
@@ -485,14 +495,14 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
 
 void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add)  {
   switch(1000*value_size+d_){
-    case 1002: gpu_compute<1, 2, float>(out, in, &table, matrix, w_, h_); break;
-    case 2002: gpu_compute<2, 2, float>(out, in, &table, matrix, w_, h_); break;
-    case 3002: gpu_compute<3, 2, float>(out, in, &table, matrix, w_, h_); break;
-    case 1005: gpu_compute<1, 5, float>(out, in, &table, matrix, w_, h_); break;
-    case 2005: gpu_compute<2, 5, float>(out, in, &table, matrix, w_, h_); break;
-    case 3005: gpu_compute<3, 5, float>(out, in, &table, matrix, w_, h_); break;
-    case 21002: gpu_compute<21, 2, float>(out, in, &table, matrix, w_, h_); break;
-    case 21005: gpu_compute<21, 5, float>(out, in, &table, matrix, w_, h_); break;
+    case 1002: gpu_compute<1, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+    case 2002: gpu_compute<2, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+    case 3002: gpu_compute<3, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+    case 1005: gpu_compute<1, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+    case 2005: gpu_compute<2, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+    case 3005: gpu_compute<3, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+    case 21002: gpu_compute<21, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+    case 21005: gpu_compute<21, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
     default:
       LOG(FATAL) << "num_dimensions should be 1 or 3";
   } 
