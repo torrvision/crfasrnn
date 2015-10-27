@@ -44,17 +44,6 @@ __global__ void computeNorm(Dtype* norm_output_data, int num_pixels){
     norm_output_data[i] = 1.f / (norm_output_data[i] + 1e-20f);
   }
 }
-/*
-template <typename Dtype>
-__global__ void  computeSpatialKernel(const int num_pixels_,
-    float* const output_kernel,
-    float theta_gamma_, int width_) {
-  CUDA_KERNEL_LOOP(p, num_pixels_) {
-    output_kernel[2*p] = (float)(p % width_) / theta_gamma_;
-    output_kernel[2*p + 1] = (float)(p / width_) / theta_gamma_;
-  }
-}
-*/
 
 /**
  * Performs filter-based mean field inference given the image and unaries.
@@ -79,14 +68,14 @@ void MultiStageMeanfieldLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bo
     computeBilateralKernel<Dtype><<<CAFFE_GET_BLOCKS(num_pixels_), CAFFE_CUDA_NUM_THREADS>>>(
         num_pixels_, bottom_data, width_, height_, channels_,
         theta_alpha_, theta_beta_, n,
-         bilateral_kernel_buffer_);
+        bilateral_kernel_buffer_);
     CUDA_POST_KERNEL_CHECK;
     bilateral_lattices_[n].reset(new ModifiedPermutohedral());
     bilateral_lattices_[n]->init(bilateral_kernel_buffer_, 5, width_, height_);
     // Calculate bilateral filter normalization factors.
     Dtype* norm_output_data = bilateral_norms_.mutable_gpu_data() + bilateral_norms_.offset(n);
     bilateral_lattices_[n]->compute(norm_output_data, norm_feed_, 1);
-    computeNorm<Dtype><<<CAFFE_GET_BLOCKS(num_pixels_), CAFFE_CUDA_NUM_THREADS>>>(norm_output_data, num_pixels_) ;
+    computeNorm<Dtype><<<CAFFE_GET_BLOCKS(num_pixels_), CAFFE_CUDA_NUM_THREADS>>>(norm_output_data, num_pixels_);
     CUDA_POST_KERNEL_CHECK;
   }
   for (int i = 0; i < num_iterations_; ++i) {
@@ -98,14 +87,14 @@ void MultiStageMeanfieldLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bo
 /**
  * Backprop through filter-based mean field inference.
  */
- /*
+ 
 template<typename Dtype>
-void MultiStageMeanfieldLayer<Dtype>::Backward_cpu(
+void MultiStageMeanfieldLayer<Dtype>::Backward_gpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
 
   for (int i = (num_iterations_ - 1); i >= 0; --i) {
-    meanfield_iterations_[i]->Backward_cpu();
+    meanfield_iterations_[i]->Backward_gpu();
   }
 
   vector<bool> split_layer_propagate_down(1, true);
@@ -127,8 +116,7 @@ void MultiStageMeanfieldLayer<Dtype>::Backward_cpu(
     }
   }
 }
-*/
 
-INSTANTIATE_LAYER_GPU_FORWARD(MultiStageMeanfieldLayer)
+INSTANTIATE_LAYER_GPU_FUNCS(MultiStageMeanfieldLayer);
 
 }  // namespace caffe
