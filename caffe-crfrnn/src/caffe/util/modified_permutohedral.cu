@@ -150,8 +150,7 @@ template<int kd>
 __global__ static void cleanHashTable(int n,
 				    int *table_entries,
 				    int table_capacity,
-				    signed short* table_keys,
-				    MatrixEntry *matrix)
+				    signed short* table_keys)
 {
     const int idx = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x * blockDim.y + threadIdx.x;
 
@@ -354,7 +353,7 @@ __global__ static void slice(const int w, const int h, float *values, MatrixEntr
 
 
 template<int pd>
-void gpu_init(const float* features, HashTable table, MatrixEntry* matrix, int w, int h)
+void gpu_init(const float* features, HashTable* table, MatrixEntry* matrix, int w, int h)
 {
     int num_points = w*h ;
     // Scan line order
@@ -376,10 +375,6 @@ void gpu_init(const float* features, HashTable table, MatrixEntry* matrix, int w
     CUDA_CHECK(cudaMalloc((void**)&scaleFactor, sizeof(float)*pd));
     CUDA_CHECK(cudaMemcpy(scaleFactor, scaleFactorHost, sizeof(float)*pd, cudaMemcpyHostToDevice));
     
-    // Allocate matrix
-    CUDA_CHECK(cudaMalloc((void **)&matrix, sizeof(MatrixEntry)*(num_points*(pd+1))));
-    
-
     // Populate memory for hash helpers
     /*unsigned long long int __host_two32 = ((unsigned long long int)1)<<32;
     unsigned int __host_div_c = 2*(num_points*(pd+1));
@@ -392,9 +387,9 @@ void gpu_init(const float* features, HashTable table, MatrixEntry* matrix, int w
 
     createMatrix<pd><<<blocks, blockSize>>>(w, h,
     					    features,
-    					    table.table_entries,
-    					    table.table_capacity,
-    					    table.table_keys,
+    					    table->table_entries,
+    					    table->table_capacity,
+    					    table->table_keys,
 					    scaleFactor,
 					    matrix);
     CUDA_POST_KERNEL_CHECK;
@@ -403,11 +398,11 @@ void gpu_init(const float* features, HashTable table, MatrixEntry* matrix, int w
     int cleanBlockSize = 32;
     dim3 cleanBlocks((num_points-1)/cleanBlockSize+1, 2*(pd+1), 1);
     cleanHashTable<pd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1),
-         table.table_entries, table.table_capacity, table.table_keys,
-         matrix);
+         table->table_entries, table->table_capacity, table->table_keys);
     CUDA_POST_KERNEL_CHECK;
     
-    resetIndex<pd><<<blocks, blockSize>>>(w, h, matrix, table.table_entries) ;
+    blocks.y *= pd+1;
+    resetIndex<pd><<<blocks, blockSize>>>(w, h, matrix, table->table_entries) ;
     
     // Clean intermediate variables
     // TODO : see what can be further cleaned
@@ -416,13 +411,13 @@ void gpu_init(const float* features, HashTable table, MatrixEntry* matrix, int w
 }
 
 template<int vd, int pd, typename Dtype>
-void gpu_compute(Dtype* out, const Dtype* in, HashTable table, MatrixEntry* matrix, int w, int h){
+void gpu_compute(Dtype* out, const Dtype* in, HashTable* table, MatrixEntry* matrix, int w, int h){
 
   // Create table_values
   int num_points = w*h ;
   float *table_values ;
-  CUDA_CHECK(cudaMalloc((void**)&table_values, sizeof(float)*vd*num_points)) ;
-  CUDA_CHECK(cudaMemset(table_values, 0, num_points*vd*sizeof(float))) ;
+  CUDA_CHECK(cudaMalloc((void**)&table_values, sizeof(float)*(vd+1)*num_points*(pd+1))) ;
+  CUDA_CHECK(cudaMemset(table_values, 0, num_points*(vd+1)*(pd+1)*sizeof(float))) ;
 
   dim3 blocks((w-1)/8+1, (h-1)/8+1, 1);
   dim3 blockSize(8, 8, 1);
@@ -431,7 +426,7 @@ void gpu_compute(Dtype* out, const Dtype* in, HashTable table, MatrixEntry* matr
   blocks.y *= pd+1;
   //TODO : use in or out ?
   splatCache<pd, vd><<<blocks, blockSize>>>(w, h, in, matrix,
-   table.table_entries,
+   table->table_entries,
    table_values);
   //splat<pd, vd><<<blocks, blockSize>>>(w, h, values.device, matrix.device);
   CUDA_POST_KERNEL_CHECK;
@@ -440,20 +435,23 @@ void gpu_compute(Dtype* out, const Dtype* in, HashTable table, MatrixEntry* matr
   int cleanBlockSize = 32;
   dim3 cleanBlocks((num_points-1)/cleanBlockSize+1, 2*(pd+1), 1);
   float *newValues;
+  float *oldValues;
   size_t size =  num_points*(pd+1)*(vd+1)*sizeof(float);
   CUDA_CHECK(cudaMalloc((void**)&(newValues), size));
+  CUDA_CHECK(cudaMalloc((void**)&(oldValues), size));
   CUDA_CHECK(cudaMemset(newValues, 0, size));
   for (int color = 0; color <= pd; color++) {
     blur<pd, vd><<<cleanBlocks, cleanBlockSize>>>(num_points*(pd+1), newValues,
      matrix,
-     table.table_entries,
-     table.table_keys,
-     table.table_capacity,
+     table->table_entries,
+     table->table_keys,
+     table->table_capacity,
      table_values,
      color);
     CUDA_POST_KERNEL_CHECK;
-    newValues = swapHashTableValues(newValues, table_values);
+    swapHashTableValues(oldValues, newValues, table_values, size);
   }
+
   // slice
   blocks.y /= (pd+1);
   slice<pd, vd><<<blocks, blockSize>>>(w, h, out, matrix, table_values);
@@ -462,21 +460,24 @@ void gpu_compute(Dtype* out, const Dtype* in, HashTable table, MatrixEntry* matr
   // Free memory
   CUDA_CHECK(cudaFree(table_values)) ;
   CUDA_CHECK(cudaFree(newValues)) ;
+  CUDA_CHECK(cudaFree(oldValues)) ;
 }
 
 void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, int w, int h) {
   //Initialize Hash table
   table.createHashTable(w*h*(num_dimensions+1), num_dimensions);
+  CUDA_CHECK(cudaMalloc((void **)&matrix, sizeof(MatrixEntry)*(w*h*(num_dimensions+1))));
   w_ = w ;
   h_ = h ;
   d_ = num_dimensions ;
   N_ = w*h ;
   switch(num_dimensions){
     case 2:
-      gpu_init<2>(features, table, matrix,  w, h);
+      gpu_init<2>(features, &table, matrix,  w, h);
       break;
     case 5:
-      gpu_init<5>(features, table, matrix, w, h);
+      gpu_init<5>(features, &table, matrix, w, h);
+      break;
     default:
       LOG(FATAL) << "num_dimensions should be 2 or 5";
   } 
@@ -485,12 +486,14 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
 
 void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add)  {
   switch(1000*value_size+d_){
-    case 1002: gpu_compute<1, 2, float>(out, in, table, matrix, w_, h_); break;
-    case 2002: gpu_compute<2, 2, float>(out, in, table, matrix, w_, h_); break;
-    case 3002: gpu_compute<3, 2, float>(out, in, table, matrix, w_, h_); break;
-    case 1005: gpu_compute<1, 5, float>(out, in, table, matrix, w_, h_); break;
-    case 2005: gpu_compute<2, 5, float>(out, in, table, matrix, w_, h_); break;
-    case 3005: gpu_compute<3, 5, float>(out, in, table, matrix, w_, h_); break;
+    case 1002: gpu_compute<1, 2, float>(out, in, &table, matrix, w_, h_); break;
+    case 2002: gpu_compute<2, 2, float>(out, in, &table, matrix, w_, h_); break;
+    case 3002: gpu_compute<3, 2, float>(out, in, &table, matrix, w_, h_); break;
+    case 1005: gpu_compute<1, 5, float>(out, in, &table, matrix, w_, h_); break;
+    case 2005: gpu_compute<2, 5, float>(out, in, &table, matrix, w_, h_); break;
+    case 3005: gpu_compute<3, 5, float>(out, in, &table, matrix, w_, h_); break;
+    case 21002: gpu_compute<21, 2, float>(out, in, &table, matrix, w_, h_); break;
+    case 21005: gpu_compute<21, 5, float>(out, in, &table, matrix, w_, h_); break;
     default:
       LOG(FATAL) << "num_dimensions should be 1 or 3";
   } 
