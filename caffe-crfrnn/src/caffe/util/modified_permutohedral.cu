@@ -383,16 +383,6 @@ void gpu_init(const float* features, HashTable* table, MatrixEntry* matrix, int 
     CUDA_CHECK(cudaMalloc((void**)&scaleFactor, sizeof(float)*pd));
     CUDA_CHECK(cudaMemcpy(scaleFactor, scaleFactorHost, sizeof(float)*pd, cudaMemcpyHostToDevice));
     
-    // Populate memory for hash helpers
-    /*unsigned long long int __host_two32 = ((unsigned long long int)1)<<32;
-    unsigned int __host_div_c = 2*(num_points*(pd+1));
-    unsigned int __host_div_l = ceilf(logf((float)__host_div_c) / logf(2.0f));
-    unsigned int __host_div_m = (__host_two32<<__host_div_l)/__host_div_c - __host_two32 + 1;
-    CUDA_CHECK(cudaMemcpy((char*)&__div_c, &__host_div_c, sizeof(unsigned int)));
-    CUDA_CHECK(cudaMemcpy((char*)&__div_l, &__host_div_l, sizeof(unsigned int)));
-    CUDA_CHECK(cudaMemcpy((char*)&__div_m, &__host_div_m, sizeof(unsigned int)));
-*/
-
     createMatrix<pd><<<blocks, blockSize>>>(w, h,
     					    features,
     					    table->table_entries,
