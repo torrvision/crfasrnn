@@ -14,7 +14,7 @@
 /************************************************/
 /***          ModifiedPermutohedral Lattice   ***/
 /************************************************/
-// TODO : free GPU memory when deconstruct
+
 namespace caffe {
 
 typedef struct MatrixEntry {
