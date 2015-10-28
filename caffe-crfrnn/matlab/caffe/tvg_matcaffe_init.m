@@ -14,6 +14,16 @@ if nargin < 3 || isempty(model_file)
   error('Missing argument model_file');
 end
 
+% set to use GPU or CPU
+if use_gpu
+  fprintf('Using GPU Mode\n');
+  caffe('set_mode_gpu');
+else
+  fprintf('Using CPU Mode\n');
+  caffe('set_mode_cpu');
+end
+fprintf('Done with set_mode\n');
+
 
 if caffe('is_initialized') == 0
   if exist(model_file, 'file') ~= 2
@@ -25,16 +35,6 @@ if caffe('is_initialized') == 0
   caffe('init', model_def_file, model_file)
 end
 fprintf('Done with init\n');
-
-% set to use GPU or CPU
-if use_gpu
-  fprintf('Using GPU Mode\n');
-  caffe('set_mode_gpu');
-else
-  fprintf('Using CPU Mode\n');
-  caffe('set_mode_cpu');
-end
-fprintf('Done with set_mode\n');
 
 % put into test mode
 caffe('set_phase_test');
