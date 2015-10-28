@@ -21,6 +21,7 @@
 
 namespace caffe {
   
+// Avoid divergence by uncoalescing access
 template <typename Dtype>
 __global__ void  computeBilateralKernel(const  int num_pixels_, 
     const Dtype* const rgb_blob, 
