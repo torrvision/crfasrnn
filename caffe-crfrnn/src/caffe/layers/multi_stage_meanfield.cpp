@@ -92,29 +92,36 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
   spatial_lattice_.reset(new ModifiedPermutohedral());
   spatial_norm_.Reshape(1, 1, height_, width_);
   Dtype* norm_data_gpu ;
+  Dtype*  norm_data;
   // Initialize the spatial lattice. This does not need to be computed for every image because we use a fixed size.
-  // CPU begin
-  //Dtype* norm_data = spatial_norm_.mutable_cpu_data();
-  //spatial_lattice_->init(spatial_kernel, 2, width_, height_);
-  //// Calculate spatial filter normalization factors.
-  //norm_feed_= new Dtype[num_pixels_];
-  //caffe_set(num_pixels_, Dtype(1.0), norm_feed_);
-  //// pass norm_feed and norm_data to gpu
-  //spatial_lattice_->compute(norm_data, norm_feed_, 1);
-  //bilateral_kernel_buffer_ = new float[5 * num_pixels_];
-  // end CPU
-  // GPU begin
-  CUDA_CHECK(cudaMalloc((void**)&spatial_kernel_gpu_, 2*num_pixels_ * sizeof(float))) ;
-  CUDA_CHECK(cudaMemcpy(spatial_kernel_gpu_, spatial_kernel, 2*num_pixels_ * sizeof(float), cudaMemcpyHostToDevice)) ;
-  spatial_lattice_->init_gpu(spatial_kernel_gpu_, 2, width_, height_);
-  CUDA_CHECK(cudaMalloc((void**)&norm_feed_, num_pixels_ * sizeof(Dtype))) ;
-  caffe_gpu_set(num_pixels_, Dtype(1.0), norm_feed_);
-  norm_data_gpu = spatial_norm_.mutable_gpu_data();
-  spatial_lattice_->compute_gpu(norm_data_gpu, norm_feed_, 1); 
-  Dtype* norm_data = spatial_norm_.mutable_cpu_data();
-  CUDA_CHECK(cudaMalloc((void**)&bilateral_kernel_buffer_, 5 * num_pixels_ * sizeof(float))) ;
-  CUDA_CHECK(cudaFree(spatial_kernel_gpu_));
-  // end GPU
+  switch (Caffe::mode()) {
+    case Caffe::CPU:
+      norm_data = spatial_norm_.mutable_cpu_data();
+      spatial_lattice_->init(spatial_kernel, 2, width_, height_);
+      // Calculate spatial filter normalization factors.
+      norm_feed_= new Dtype[num_pixels_];
+      caffe_set(num_pixels_, Dtype(1.0), norm_feed_);
+      // pass norm_feed and norm_data to gpu
+      spatial_lattice_->compute(norm_data, norm_feed_, 1);
+      bilateral_kernel_buffer_ = new float[5 * num_pixels_];
+      break;
+    #ifndef CPU_ONLY
+    case Caffe::GPU:
+      CUDA_CHECK(cudaMalloc((void**)&spatial_kernel_gpu_, 2*num_pixels_ * sizeof(float))) ;
+      CUDA_CHECK(cudaMemcpy(spatial_kernel_gpu_, spatial_kernel, 2*num_pixels_ * sizeof(float), cudaMemcpyHostToDevice)) ;
+      spatial_lattice_->init_gpu(spatial_kernel_gpu_, 2, width_, height_);
+      CUDA_CHECK(cudaMalloc((void**)&norm_feed_, num_pixels_ * sizeof(Dtype))) ;
+      caffe_gpu_set(num_pixels_, Dtype(1.0), norm_feed_);
+      norm_data_gpu = spatial_norm_.mutable_gpu_data();
+      spatial_lattice_->compute_gpu(norm_data_gpu, norm_feed_, 1); 
+      norm_data = spatial_norm_.mutable_cpu_data();
+      CUDA_CHECK(cudaMalloc((void**)&bilateral_kernel_buffer_, 5 * num_pixels_ * sizeof(float))) ;
+      CUDA_CHECK(cudaFree(spatial_kernel_gpu_));
+      break;
+    #endif
+    default:
+    LOG(FATAL) << "Unknown caffe mode.";
+  }
   
   for (int i = 0; i < num_pixels_; ++i) {
     norm_data[i] = 1.0f / (norm_data[i] + 1e-20f);
@@ -240,14 +247,19 @@ void MultiStageMeanfieldLayer<Dtype>::Backward_cpu(
 
 template<typename Dtype>
 MultiStageMeanfieldLayer<Dtype>::~MultiStageMeanfieldLayer(){
-  //CPU begin
-  //delete[] bilateral_kernel_buffer_;
-  //delete[] norm_feed_;
-  //end CPU
-  //GPU begin
-  CUDA_CHECK(cudaFree(bilateral_kernel_buffer_));
-  CUDA_CHECK(cudaFree(norm_feed_));
-  //end GPU
+  switch (Caffe::mode()) {
+    case Caffe::CPU:  
+      delete[] bilateral_kernel_buffer_;
+      delete[] norm_feed_;
+  #ifndef CPU_ONLY
+    case Caffe::GPU:
+      CUDA_CHECK(cudaFree(bilateral_kernel_buffer_));
+      CUDA_CHECK(cudaFree(norm_feed_));
+    break;
+  #endif
+  default:
+    LOG(FATAL) << "Unknown caffe mode.";
+  }
 }
 
 template<typename Dtype>
