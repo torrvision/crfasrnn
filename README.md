@@ -133,7 +133,7 @@ You can also find part of our model in [MatConvNet](http://www.vlfeat.org/matcon
 # GPU use
 For the moment there is no automatic way to enable GPU computing. If you want to use GPU version
 of the meanfield iteration please uncomment the line between `//GPU begin` and `//end GPU`,
-and comment the lines between `//CPU begin` and '`//end CPU` in the file 
+and comment the lines between `//CPU begin` and `//end CPU` in the file 
 ```
 meanfield_iteration.cpp
 ```
