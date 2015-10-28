@@ -464,7 +464,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
      table_values,
      color);
     CUDA_POST_KERNEL_CHECK;
-    // swap pointers does not seems to work...
+    // swap pointers does not seem to work...
     swapHashTableValues(oldValues, newValues, table_values, size);
   }
 
@@ -500,6 +500,7 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
 }
 
 void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add) const {
+  //TODO : avoid doing such things, this can be done allocating shared memory dynamically
   switch(1000*value_size+d_){
     case 1002: gpu_compute<1, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
     case 2002: gpu_compute<2, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
