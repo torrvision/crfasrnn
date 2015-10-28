@@ -460,6 +460,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
      table_values,
      color);
     CUDA_POST_KERNEL_CHECK;
+    // swap pointers does not seems to work...
     swapHashTableValues(oldValues, newValues, table_values, size);
   }
 
