@@ -60,8 +60,8 @@ public:
 	void compute_cpu(float* out, const float* in, int value_size, bool reverse = false, bool add = false) const;
 	void compute_cpu(double* out, const double* in, int value_size, bool reverse = false, bool add = false) const;
 	
-	void compute_gpu(float* out, const float* in, int value_size, bool reverse = false, bool add = false) ;	
-	void compute_gpu(double* out, const double* in, int value_size, bool reverse = false, bool add = false) ;
+	void compute_gpu(float* out, const float* in, int value_size, bool reverse = false, bool add = false) const;	
+	void compute_gpu(double* out, const double* in, int value_size, bool reverse = false, bool add = false) const;
 	
 	void init (const float* features, int num_dimensions, int w, int h){
 	  switch (Caffe::mode()) {
