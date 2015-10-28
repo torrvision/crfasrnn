@@ -394,6 +394,9 @@ class MultiStageMeanfieldLayer : public Layer<Dtype> {
   int width_;
   int num_pixels_;
 
+  bool init_cpu;
+  bool init_gpu;
+  
   Dtype theta_alpha_;
   Dtype theta_beta_;
   Dtype theta_gamma_;
