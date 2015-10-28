@@ -196,8 +196,8 @@ __global__ static void resetIndex(const int w, const int h,
   }
 }
 
-template<int pd, int vd>
-__global__ static void splatCache(const int w, const int h,
+template<int pd>
+__global__ static void splatCache(const int w, const int h, const int vd,
     const float *values,
     const MatrixEntry *matrix,
     const int *table_entries,
@@ -211,7 +211,7 @@ __global__ static void splatCache(const int w, const int h,
   const bool outOfBounds = (x >= w) || (y >= h);
 
   __shared__ int sharedOffsets[BLOCK_SIZE];
-  __shared__ float sharedValues[BLOCK_SIZE*(vd+1)];
+  extern __shared__ float sharedValues[];
   int myOffset = -1;
   float *myValue = sharedValues + threadId*(vd+1);
 
@@ -264,14 +264,15 @@ __global__ static void splatCache(const int w, const int h,
   }
 }
 
-template<int pd, int vd>
+template<int pd>
 __global__ static void blur(int n, float *newValues,
     const MatrixEntry *matrix,
     const int *table_entries,
     const signed short *table_keys,
     const int table_capacity,
     float *table_values,
-    int color)
+    int color,
+    const int vd)
 {
   const int idx = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x * blockDim.y + threadIdx.x;
 
@@ -328,8 +329,8 @@ __global__ static void blur(int n, float *newValues,
   }
 }
 
-template<int pd, int vd>
-__global__ static void slice(const int w, const int h,
+template<int pd>
+__global__ static void slice(const int w, const int h, const int vd,
     float *values,
     const MatrixEntry *matrix,
     float *table_values,
@@ -344,7 +345,7 @@ __global__ static void slice(const int w, const int h,
 
   if (outOfBounds) return;
 
-  __shared__ float localValue[BLOCK_SIZE*vd];
+  extern __shared__ float localValue[];
 
   float *myValue = localValue + threadId*vd;
   float myWeight = 0;
@@ -424,10 +425,10 @@ void gpu_init(const float* features,
   CUDA_CHECK(cudaFree(scaleFactor));
 }
 
-template<int vd, int pd, typename Dtype>
+template<int pd, typename Dtype>
 void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
   const MatrixEntry* matrix,
-  int w, int h,
+  int w, int h, int vd,
   bool reverse, bool add){
 
   // Create table_values
@@ -441,7 +442,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
 
   // splat splits by color, so extend the y coordinate to our blocks to represent that
   blocks.y *= pd+1;
-  splatCache<pd, vd><<<blocks, blockSize>>>(w, h, in, matrix,
+  splatCache<pd><<<blocks, blockSize, BLOCK_SIZE*(vd+1)*sizeof(float)>>>(w, h, vd, in, matrix,
     table->table_entries,
     table_values);
   CUDA_POST_KERNEL_CHECK;
@@ -456,13 +457,14 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
   CUDA_CHECK(cudaMalloc((void**)&(oldValues), size));
   CUDA_CHECK(cudaMemset(newValues, 0, size));
   for (int color = reverse?pd:0; color <= pd && color>=0; reverse?color--:color++) {
-    blur<pd, vd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1), newValues,
+    blur<pd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1), newValues,
      matrix,
      table->table_entries,
      table->table_keys,
      table->table_capacity,
      table_values,
-     color);
+     color,
+     vd);
     CUDA_POST_KERNEL_CHECK;
     // swap pointers does not seem to work...
     swapHashTableValues(oldValues, newValues, table_values, size);
@@ -470,7 +472,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
 
   // slice
   blocks.y /= (pd+1);
-  slice<pd, vd><<<blocks, blockSize>>>(w, h, out, matrix, table_values, add);
+  slice<pd><<<blocks, blockSize, sizeof(float)*BLOCK_SIZE*vd>>>(w, h, vd, out, matrix, table_values, add);
   CUDA_POST_KERNEL_CHECK;
 
   // Free memory
@@ -500,32 +502,30 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
 }
 
 void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add) const {
-  //TODO : avoid doing such things, this can be done allocating shared memory dynamically
-  switch(1000*value_size+d_){
-    case 1002: gpu_compute<1, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
-    case 2002: gpu_compute<2, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
-    case 3002: gpu_compute<3, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
-    case 1005: gpu_compute<1, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
-    case 2005: gpu_compute<2, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
-    case 3005: gpu_compute<3, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
-    case 21002: gpu_compute<21, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
-    case 21005: gpu_compute<21, 5, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
+  // Losing time by dynamically allocating memory but more general function
+  switch(d_){
+    case 2:
+      gpu_compute<2, float>(out, in, &table, matrix, w_, h_, value_size, reverse, add);
+      break;
+    case 5:
+      gpu_compute<5, float>(out, in, &table, matrix, w_, h_, value_size, reverse, add);
+      break;
     default:
-      LOG(FATAL) << "num_dimensions should be 1, 3 or 21";
+      LOG(FATAL) << "num_dimensions should be 2 or 5";
   }
 }
 
 void ModifiedPermutohedral::compute_gpu(double* out, const double* in, int value_size, bool reverse, bool add) const {
 //TODO : view that later on
-  /*switch(1000*value_size+d_){
-    case 1002: gpu_compute<1, 2, double>(out, in, table, matrix, w_, h_); break;
-    case 2002: gpu_compute<2, 2, double>(out, in, table, matrix, w_, h_); break;
-    case 3002: gpu_compute<3, 2, double>(out, in, table, matrix, w_, h_); break;
-    case 1005: gpu_compute<1, 5, double>(out, in, table, matrix, w_, h_); break;
-    case 2005: gpu_compute<2, 5, double>(out, in, table, matrix, w_, h_); break;
-    case 3005: gpu_compute<3, 5, double>(out, in, table, matrix, w_, h_); break;
+  /*switch(d_){
+    case 2:
+      gpu_compute<2, double>(out, in, &table, matrix, w_, h_, value_size, reverse, add);
+      break;
+    case 5:
+      gpu_init<5, double>(features, &table, matrix, w, h);
+      break;
     default:
-      LOG(FATAL) << "num_dimensions should be 1 or 3";
+      LOG(FATAL) << "num_dimensions should be 2 or 5";
   } */
 }
 
