@@ -1,5 +1,4 @@
 #include <cstdlib>
-#include <vector>
 #include <cassert>
 #include <cstdio>
 #include "caffe/common.hpp"
