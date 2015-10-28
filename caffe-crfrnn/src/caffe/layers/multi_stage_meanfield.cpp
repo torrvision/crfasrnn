@@ -104,6 +104,7 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
       // pass norm_feed and norm_data to gpu
       spatial_lattice_->compute(norm_data, norm_feed_, 1);
       bilateral_kernel_buffer_ = new float[5 * num_pixels_];
+      init_cpu = true;
       break;
     #ifndef CPU_ONLY
     case Caffe::GPU:
@@ -117,6 +118,7 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
       norm_data = spatial_norm_.mutable_cpu_data();
       CUDA_CHECK(cudaMalloc((void**)&bilateral_kernel_buffer_, 5 * num_pixels_ * sizeof(float))) ;
       CUDA_CHECK(cudaFree(spatial_kernel_gpu_));
+      init_gpu = true;
       break;
     #endif
     default:
@@ -247,19 +249,16 @@ void MultiStageMeanfieldLayer<Dtype>::Backward_cpu(
 
 template<typename Dtype>
 MultiStageMeanfieldLayer<Dtype>::~MultiStageMeanfieldLayer(){
-  switch (Caffe::mode()) {
-    case Caffe::CPU:  
+  if(init_cpu){
       delete[] bilateral_kernel_buffer_;
       delete[] norm_feed_;
+  }
   #ifndef CPU_ONLY
-    case Caffe::GPU:
+  if(init_gpu){
       CUDA_CHECK(cudaFree(bilateral_kernel_buffer_));
       CUDA_CHECK(cudaFree(norm_feed_));
-    break;
-  #endif
-  default:
-    LOG(FATAL) << "Unknown caffe mode.";
   }
+  #endif
 }
 
 template<typename Dtype>
