@@ -413,6 +413,7 @@ void gpu_init(const float* features,
 
   blocks.y *= pd+1;
   resetIndex<pd><<<blocks, blockSize>>>(w, h, matrix, table->table_entries) ;
+  CUDA_POST_KERNEL_CHECK;
 
   // Clean intermediate variables
   delete[] scaleFactorHost;
@@ -437,9 +438,8 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
   // splat splits by color, so extend the y coordinate to our blocks to represent that
   blocks.y *= pd+1;
   splatCache<pd, vd><<<blocks, blockSize>>>(w, h, in, matrix,
-   table->table_entries,
-   table_values);
-  //splat<pd, vd><<<blocks, blockSize>>>(w, h, values.device, matrix.device);
+    table->table_entries,
+    table_values);
   CUDA_POST_KERNEL_CHECK;
 
   // blur
@@ -452,7 +452,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
   CUDA_CHECK(cudaMalloc((void**)&(oldValues), size));
   CUDA_CHECK(cudaMemset(newValues, 0, size));
   for (int color = reverse?pd:0; color <= pd && color>=0; reverse?color--:color++) {
-    blur<pd, vd><<<cleanBlocks, cleanBlockSize>>>(num_points*(pd+1), newValues,
+    blur<pd, vd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1), newValues,
      matrix,
      table->table_entries,
      table->table_keys,
