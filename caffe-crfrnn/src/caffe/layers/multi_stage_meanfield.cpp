@@ -109,11 +109,11 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
     case Caffe::GPU:
       CUDA_CHECK(cudaMalloc((void**)&spatial_kernel_gpu_, 2*num_pixels_ * sizeof(float))) ;
       CUDA_CHECK(cudaMemcpy(spatial_kernel_gpu_, spatial_kernel, 2*num_pixels_ * sizeof(float), cudaMemcpyHostToDevice)) ;
-      spatial_lattice_->init_gpu(spatial_kernel_gpu_, 2, width_, height_);
+      spatial_lattice_->init(spatial_kernel_gpu_, 2, width_, height_);
       CUDA_CHECK(cudaMalloc((void**)&norm_feed_, num_pixels_ * sizeof(Dtype))) ;
       caffe_gpu_set(num_pixels_, Dtype(1.0), norm_feed_);
       norm_data_gpu = spatial_norm_.mutable_gpu_data();
-      spatial_lattice_->compute_gpu(norm_data_gpu, norm_feed_, 1); 
+      spatial_lattice_->compute(norm_data_gpu, norm_feed_, 1); 
       norm_data = spatial_norm_.mutable_cpu_data();
       CUDA_CHECK(cudaMalloc((void**)&bilateral_kernel_buffer_, 5 * num_pixels_ * sizeof(float))) ;
       CUDA_CHECK(cudaFree(spatial_kernel_gpu_));
