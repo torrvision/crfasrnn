@@ -9,7 +9,7 @@
 namespace caffe {
 
 template<int pd>
-__global__ static void createMatrix(int w, int h,
+__global__ static void createMatrix(const int w, const int h,
 				    const float *positions,
 				    int *table_entries,
 				    int table_capacity,
@@ -147,7 +147,7 @@ __global__ static void createMatrix(int w, int h,
 }
 
 template<int kd>
-__global__ static void cleanHashTable(int n,
+__global__ static void cleanHashTable(const int n,
 				    int *table_entries,
 				    int table_capacity,
 				    signed short* table_keys)
@@ -173,7 +173,7 @@ __global__ static void cleanHashTable(int n,
 }
 
 template<int pd>
-__global__ static void resetIndex(int w, int h,
+__global__ static void resetIndex(const int w, const int h,
   MatrixEntry *matrix,
   int *table_entries) {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -190,8 +190,8 @@ __global__ static void resetIndex(int w, int h,
 template<int pd, int vd>
 __global__ static void splatCache(const int w, const int h,
 		 const float *values,
-		 MatrixEntry *matrix,
-		 int *table_entries,
+		 const MatrixEntry *matrix,
+		 const int *table_entries,
 		 float *table_values) {
     const int x = threadIdx.x + blockIdx.x * blockDim.x;
     const int y = threadIdx.y + (blockIdx.y/(pd+1)) * blockDim.y;
@@ -255,10 +255,11 @@ __global__ static void splatCache(const int w, const int h,
 }
 
 template<int pd, int vd>
-__global__ static void blur(int n, float *newValues, MatrixEntry *matrix,
-   int *table_entries,
-   signed short *table_keys,
-   int table_capacity,
+__global__ static void blur(int n, float *newValues, 
+   const MatrixEntry *matrix,
+   const int *table_entries,
+   const signed short *table_keys,
+   const int table_capacity,
    float *table_values,
    int color) {
     const int idx = (blockIdx.y * gridDim.x + blockIdx.x) * blockDim.x * blockDim.y + threadIdx.x;
@@ -319,7 +320,7 @@ __global__ static void blur(int n, float *newValues, MatrixEntry *matrix,
 template<int pd, int vd>
 __global__ static void slice(const int w, const int h,
   float *values, 
-  MatrixEntry *matrix, 
+  const MatrixEntry *matrix, 
   float *table_values,
   bool add) {
     //const int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
@@ -343,25 +344,28 @@ __global__ static void slice(const int w, const int h,
 
     for (int i = 0; i <= pd; i++) {
 	MatrixEntry r = matrix[idx*(pd+1) + i];
-	float *val = table_values + r.index*(vd+1);
+	const float *val = table_values + r.index*(vd+1);
 	for (int j = 0; j < vd; j++) {
 	    myValue[j] += r.weight*val[j];
 	}
 	myWeight += r.weight*val[vd];
     }
 
-    //myWeight = 1.0f/myWeight;
-    float alpha = 1.0f / (1+powf(2, -pd));
+    myWeight = 1.0f/myWeight;
+    float alpha = 1.0f;// / (1+powf(2, -pd));
     for (int j = 0; j < vd; j++){
       if(!add)
         values[j*w*h + idx] = 0;
-	values[j*w*h + idx] += myValue[j]*alpha;
+	values[j*w*h + idx] += myValue[j]*alpha*myWeight;
     }
 }
 
 
 template<int pd>
-void gpu_init(const float* features, HashTable* table, MatrixEntry* matrix, int w, int h)
+void gpu_init(const float* features,
+    HashTable* table, 
+    MatrixEntry* matrix, 
+    const int w, const int h)
 {
     int num_points = w*h ;
     // Scan line order
@@ -408,8 +412,8 @@ void gpu_init(const float* features, HashTable* table, MatrixEntry* matrix, int 
 }
 
 template<int vd, int pd, typename Dtype>
-void gpu_compute(Dtype* out, const Dtype* in, HashTable* table,
-  MatrixEntry* matrix, 
+void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
+  const MatrixEntry* matrix, 
   int w, int h, 
   bool reverse, bool add){
 
@@ -482,7 +486,7 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
   } 
 }
 
-void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add)  {
+void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add) const {
   switch(1000*value_size+d_){
     case 1002: gpu_compute<1, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
     case 2002: gpu_compute<2, 2, float>(out, in, &table, matrix, w_, h_, reverse, add); break;
@@ -497,7 +501,7 @@ void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_s
   } 
 }
 
-void ModifiedPermutohedral::compute_gpu(double* out, const double* in, int value_size, bool reverse, bool add)  {
+void ModifiedPermutohedral::compute_gpu(double* out, const double* in, int value_size, bool reverse, bool add) const {
 //TODO : view that later on 
   /*switch(1000*value_size+d_){
     case 1002: gpu_compute<1, 2, double>(out, in, table, matrix, w_, h_); break;
