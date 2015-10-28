@@ -8,11 +8,7 @@
 #include "caffe/common.hpp"
 #include "caffe/util/device_alternate.hpp"
 
-/*
-      Hash Table
-*/
-
-#define USE_CUSTOM_MODULO
+//TODO : Might be better to unify this with already existing HashTable class
 
 namespace caffe{
 
