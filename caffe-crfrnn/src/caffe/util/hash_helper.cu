@@ -29,12 +29,6 @@ __device__ __host__ static unsigned int hash(int *key) {
   return k;
 }
 
-static void swapHashTableValues(float* oldValues, float *newValues, float* table_values,size_t size) {
-  CUDA_CHECK(cudaMemcpy(oldValues,table_values,size,cudaMemcpyDeviceToDevice));
-  CUDA_CHECK(cudaMemcpy(table_values,newValues,size,cudaMemcpyDeviceToDevice));
-  CUDA_CHECK(cudaMemcpy(newValues,oldValues,size,cudaMemcpyDeviceToDevice));
-}
-
 template<int kd> 
 __device__ static int hashTableInsert(unsigned int fh, signed short *key,
     signed short* table_keys,
