@@ -9,7 +9,8 @@
 
 namespace caffe {
 
-__device__ __host__ static unsigned int hash(signed short *key, int kd) {
+template<int kd> 
+__device__ __host__ static unsigned int hash(signed short *key) {
   unsigned int k = 0; 
   for (int i = 0; i < kd; i++) {
     k += key[i];
@@ -18,7 +19,8 @@ __device__ __host__ static unsigned int hash(signed short *key, int kd) {
   return k;
 }
 
-__device__ __host__ static unsigned int hash(int *key, int kd) {
+template<int kd> 
+__device__ __host__ static unsigned int hash(int *key) {
   unsigned int k = 0; 
   for (int i = 0; i < kd; i++) {
     k += key[i];
@@ -33,13 +35,12 @@ static void swapHashTableValues(float* oldValues, float *newValues, float* table
   CUDA_CHECK(cudaMemcpy(newValues,oldValues,size,cudaMemcpyDeviceToDevice));
 }
 
-
+template<int kd> 
 __device__ static int hashTableInsert(unsigned int fh, signed short *key,
     signed short* table_keys,
     int* table_entries,
     int table_capacity, 
-    unsigned int slot, 
-    int kd) 
+    unsigned int slot) 
 {    	
   int h = modHash(fh);
   while (1) {
@@ -80,15 +81,15 @@ __device__ static int hashTableInsert(unsigned int fh, signed short *key,
   }
 }
 
+template<int kd> 
 __device__ static int hashTableInsert(signed short *key, 
     signed short* table_keys,
     int* table_entries,
     int table_capacity, 
-    unsigned int slot, 
-    int kd) 
+    unsigned int slot) 
 {
-  unsigned int myHash = hash(key, kd);
-  return hashTableInsert(myHash, key, table_keys, table_entries, table_capacity, slot, kd);
+  unsigned int myHash = hash<kd>(key);
+  return hashTableInsert<kd>(myHash, key, table_keys, table_entries, table_capacity, slot);
 }
 
 
@@ -122,7 +123,7 @@ __device__ static int hashTableRetrieve(signed short *key,
     const signed short* table_keys,
     const int table_capacity) 
 {
-  int h = modHash(hash(key, kd));
+  int h = modHash(hash<kd>(key));
   while (1) {
     const int *e = table_entries + h;
 
