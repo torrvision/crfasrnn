@@ -10,6 +10,10 @@ static void swapHashTableValues(float* oldValues, float *newValues, float* table
   CUDA_CHECK(cudaMemcpy(oldValues,table_values,size,cudaMemcpyDeviceToDevice));
   CUDA_CHECK(cudaMemcpy(table_values,newValues,size,cudaMemcpyDeviceToDevice));
   CUDA_CHECK(cudaMemcpy(newValues,oldValues,size,cudaMemcpyDeviceToDevice));
+  // Works but give poorer results TODO : find out why
+  //oldValues = table_values;
+  //table_values = newValues;
+  //newValues = oldValues;
 }
 
 template<int pd>
