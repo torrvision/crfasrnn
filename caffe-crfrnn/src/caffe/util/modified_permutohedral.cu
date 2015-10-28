@@ -8,6 +8,12 @@
 
 namespace caffe {
 
+static void swapHashTableValues(float* oldValues, float *newValues, float* table_values,size_t size) {
+  CUDA_CHECK(cudaMemcpy(oldValues,table_values,size,cudaMemcpyDeviceToDevice));
+  CUDA_CHECK(cudaMemcpy(table_values,newValues,size,cudaMemcpyDeviceToDevice));
+  CUDA_CHECK(cudaMemcpy(newValues,oldValues,size,cudaMemcpyDeviceToDevice));
+}
+
 template<int pd>
 __global__ static void createMatrix(const int w, const int h,
 				    const float *positions,
