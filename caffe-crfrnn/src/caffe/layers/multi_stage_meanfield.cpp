@@ -86,28 +86,40 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
     }
   }
 
-  // Initialize the spatial lattice. This does not need to be computed for every image because we use a fixed size.
   float spatial_kernel[2 * num_pixels_];
+  float *spatial_kernel_gpu_;
   compute_spatial_kernel(spatial_kernel);
   spatial_lattice_.reset(new ModifiedPermutohedral());
-  //TODO init_gpu or cpu ?
-  spatial_lattice_->init(spatial_kernel, 2, num_pixels_);
-
-  // Calculate spatial filter normalization factors.
-  norm_feed_.reset(new Dtype[num_pixels_]);
-  caffe_set(num_pixels_, Dtype(1.0), norm_feed_.get());
   spatial_norm_.Reshape(1, 1, height_, width_);
-  // TODO : parse blob to gpu and norm_data ?
+  Dtype* norm_data_gpu ;
+  // Initialize the spatial lattice. This does not need to be computed for every image because we use a fixed size.
+  // CPU begin
+  //Dtype* norm_data = spatial_norm_.mutable_cpu_data();
+  //spatial_lattice_->init(spatial_kernel, 2, width_, height_);
+  //// Calculate spatial filter normalization factors.
+  //norm_feed_= new Dtype[num_pixels_];
+  //caffe_set(num_pixels_, Dtype(1.0), norm_feed_);
+  //// pass norm_feed and norm_data to gpu
+  //spatial_lattice_->compute(norm_data, norm_feed_, 1);
+  //bilateral_kernel_buffer_ = new float[5 * num_pixels_];
+  // end CPU
+  // GPU begin
+  CUDA_CHECK(cudaMalloc((void**)&spatial_kernel_gpu_, 2*num_pixels_ * sizeof(float))) ;
+  CUDA_CHECK(cudaMemcpy(spatial_kernel_gpu_, spatial_kernel, 2*num_pixels_ * sizeof(float), cudaMemcpyHostToDevice)) ;
+  spatial_lattice_->init_gpu(spatial_kernel_gpu_, 2, width_, height_);
+  CUDA_CHECK(cudaMalloc((void**)&norm_feed_, num_pixels_ * sizeof(Dtype))) ;
+  caffe_gpu_set(num_pixels_, Dtype(1.0), norm_feed_);
+  norm_data_gpu = spatial_norm_.mutable_gpu_data();
+  spatial_lattice_->compute_gpu(norm_data_gpu, norm_feed_, 1); 
   Dtype* norm_data = spatial_norm_.mutable_cpu_data();
-  spatial_lattice_->compute(norm_data, norm_feed_.get(), 1);
+  CUDA_CHECK(cudaMalloc((void**)&bilateral_kernel_buffer_, 5 * num_pixels_ * sizeof(float))) ;
+  CUDA_CHECK(cudaFree(spatial_kernel_gpu_));
+  // end GPU
+  
   for (int i = 0; i < num_pixels_; ++i) {
     norm_data[i] = 1.0f / (norm_data[i] + 1e-20f);
   }
-
-  // Allocate space for bilateral kernels. This is a temporary buffer used to compute bilateral lattices later.
-  // Also allocate space for holding bilateral filter normalization values.
-  bilateral_kernel_buffer_.reset(new float[5 * num_pixels_]);
-  bilateral_norms_.Reshape(num_, 1, height_, width_);
+  bilateral_norms_.Reshape(num_, 1, height_, width_);  
 
   // Configure the split layer that is used to make copies of the unary term. One copy for each iteration.
   // It may be possible to optimize this calculation later.
@@ -132,7 +144,6 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
   for (int i = 0; i < num_iterations_ - 1; ++i) {
     iteration_output_blobs_[i].reset(new Blob<Dtype>(num_, channels_, height_, width_));
   }
-
   // Make instances of MeanfieldIteration and initialize them.
   meanfield_iterations_.resize(num_iterations_);
   for (int i = 0; i < num_iterations_; ++i) {
@@ -144,9 +155,7 @@ void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
         spatial_lattice_, // spatial lattice
         &spatial_norm_); // spatial normalization factors.
   }
-
   this->param_propagate_down_.resize(this->blobs_.size(), true);
-
   LOG(INFO) << ("MultiStageMeanfieldLayer initialized.");
 }
 
@@ -177,13 +186,13 @@ void MultiStageMeanfieldLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bo
   bilateral_lattices_.resize(num_);
   for (int n = 0; n < num_; ++n) {
 
-    compute_bilateral_kernel(bottom[2], n, bilateral_kernel_buffer_.get());
+    compute_bilateral_kernel(bottom[2], n, bilateral_kernel_buffer_);
     bilateral_lattices_[n].reset(new ModifiedPermutohedral());
-    bilateral_lattices_[n]->init(bilateral_kernel_buffer_.get(), 5, num_pixels_);
+    bilateral_lattices_[n]->init(bilateral_kernel_buffer_, 5, width_, height_);
 
     // Calculate bilateral filter normalization factors.
     Dtype* norm_output_data = bilateral_norms_.mutable_cpu_data() + bilateral_norms_.offset(n);
-    bilateral_lattices_[n]->compute(norm_output_data, norm_feed_.get(), 1);
+    bilateral_lattices_[n]->compute(norm_output_data, norm_feed_, 1);
     for (int i = 0; i < num_pixels_; ++i) {
       norm_output_data[i] = 1.f / (norm_output_data[i] + 1e-20f);
     }
@@ -227,6 +236,18 @@ void MultiStageMeanfieldLayer<Dtype>::Backward_cpu(
       }
     }
   }
+}
+
+template<typename Dtype>
+MultiStageMeanfieldLayer<Dtype>::~MultiStageMeanfieldLayer(){
+  //CPU begin
+  //delete[] bilateral_kernel_buffer_;
+  //delete[] norm_feed_;
+  //end CPU
+  //GPU begin
+  CUDA_CHECK(cudaFree(bilateral_kernel_buffer_));
+  CUDA_CHECK(cudaFree(norm_feed_));
+  //end GPU
 }
 
 template<typename Dtype>
