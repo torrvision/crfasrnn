@@ -135,7 +135,7 @@ For the moment there is no automatic way to enable GPU computing. If you want to
 of the meanfield iteration please uncomment the line between `//GPU begin` and `//end GPU`,
 and comment the lines between `//CPU begin` and `//end CPU` in the file 
 ```
-meanfield_iteration.cpp
+multi_stage_meanfield.cpp
 ```
 The function that are concerned by this change are `LayerSetUp` and `~MeanfielIteration()` (class destructor).
 Please uncomment the appropriate mode (CPU will not work in GPU mode and vice versa).
