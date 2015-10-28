@@ -113,7 +113,7 @@ __global__ static void createMatrix(const int w, const int h,
     }
 
     #ifdef USE_ADDITIVE_HASH
-    unsigned int cumulative_hash = hash(myGreedy, pd);
+    unsigned int cumulative_hash = hash<pd>(myGreedy);
     #endif
     for (int color = 0; color <= pd; color++) {
 	// Compute the location of the lattice point explicitly (all but
@@ -134,11 +134,11 @@ __global__ static void createMatrix(const int w, const int h,
 	if (!outOfBounds) {
 	    MatrixEntry r;
 	    #ifdef USE_ADDITIVE_HASH
-	    r.index = hashTableInsert(cumulative_hash, myKey, table_keys,
-    		table_entries, table_capacity,  idx*(pd+1)+color,pd);
+	    r.index = hashTableInsert<pd>(cumulative_hash, myKey, table_keys,
+    		table_entries, table_capacity,  idx*(pd+1)+color);
 	    #else
-	    r.index = hashTableInsert(myKey, table_keys, table_entries,
-    		table_capacity,  idx*(pd+1)+color,pd);
+	    r.index = hashTableInsert<pd>(myKey, table_keys, table_entries,
+    		table_capacity,  idx*(pd+1)+color);
 	    #endif
 	    r.weight = myBarycentric[color];
 	    matrix[idx*(pd+1) + color] = r;
