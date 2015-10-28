@@ -13,7 +13,7 @@ __device__ __host__ static unsigned int hash(signed short *key) {
   unsigned int k = 0; 
   for (int i = 0; i < kd; i++) {
     k += key[i];
-    k = k * 2531011; 
+    k = k * 1664525; 
   }
   return k;
 }
@@ -23,7 +23,7 @@ __device__ __host__ static unsigned int hash(int *key) {
   unsigned int k = 0; 
   for (int i = 0; i < kd; i++) {
     k += key[i];
-    k = k * 2531011; 
+    k = k * 1664525; 
   }
   return k;
 }
