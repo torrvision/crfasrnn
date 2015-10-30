@@ -32,9 +32,9 @@ class HashTable
       CUDA_CHECK(cudaMalloc((void **) &table_entries, 2*capacity*sizeof(int)));
       CUDA_CHECK(cudaMemset(table_entries, -1, 2*capacity*sizeof(int)));
       
-      // Initialize table_values
-      CUDA_CHECK(cudaMalloc((void **) &table_keys, capacity*kd*sizeof(float)));
-      CUDA_CHECK(cudaMemset(table_keys, 0, capacity*kd*sizeof(float)));    
+      // Initialize table_keys
+      CUDA_CHECK(cudaMalloc((void **) &table_keys, capacity*kd*sizeof(signed short)));
+      CUDA_CHECK(cudaMemset(table_keys, 0, capacity*kd*sizeof(signed short)));    
 
       // Set create to true
       create = true;
