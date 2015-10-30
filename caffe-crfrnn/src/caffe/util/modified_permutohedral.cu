@@ -120,9 +120,6 @@ __global__ static void createMatrix(const int w, const int h,
     myBarycentric[0] += 1.0f + myBarycentric[pd+1];
   }
 
-#ifdef USE_ADDITIVE_HASH
-  unsigned int cumulative_hash = hash<pd>(myGreedy);
-#endif
   for (int color = 0; color <= pd; color++) {
     // Compute the location of the lattice point explicitly (all but
     // the last coordinate - it's redundant because they sum to zero)
@@ -133,21 +130,10 @@ __global__ static void createMatrix(const int w, const int h,
       }
     }
 
-#ifdef USE_ADDITIVE_HASH
-    for (int i = 0; i < pd; i++) {
-      if (myRank[i] == pd-color) cumulative_hash += hOffset[i];
-    }
-#endif
-
     if (!outOfBounds) {
       MatrixEntry r;
-#ifdef USE_ADDITIVE_HASH
-      r.index = hashTableInsert<pd>(cumulative_hash, myKey, table_keys,
-          table_entries, table_capacity,  idx*(pd+1)+color);
-#else
       r.index = hashTableInsert<pd>(myKey, table_keys, table_entries,
           table_capacity,  idx*(pd+1)+color);
-#endif
       r.weight = myBarycentric[color];
       matrix[idx*(pd+1) + color] = r;
     }
@@ -295,14 +281,8 @@ __global__ static void blur(int n, float *newValues,
   np[color] -= pd+1;
   nm[color] += pd+1;
 
-#ifdef USE_ADDITIVE_HASH
-  unsigned int hCurrent = hash<pd>(myKey);
-  int offNp = hashTableRetrieveWithHash<pd>(hCurrent+hOffset[color],np, table_entries, table_keys, table_capacity);
-  int offNm = hashTableRetrieveWithHash<pd>(hCurrent-hOffset[color],nm, table_entries, table_keys, table_capacity);
-#else
   int offNp = hashTableRetrieve<pd>(np, table_entries, table_keys, table_capacity);
   int offNm = hashTableRetrieve<pd>(nm, table_entries, table_keys, table_capacity);
-#endif
 
   float *valMe = table_values + (vd+1)*idx;
   float *valNp = table_values + (vd+1)*offNp;
