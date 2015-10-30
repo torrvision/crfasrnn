@@ -85,31 +85,6 @@ __device__ static int hashTableInsert(signed short *key,
   return hashTableInsert<kd>(myHash, key, table_keys, table_entries, table_capacity, slot);
 }
 
-
-
-template<int kd> 
-__device__ static int hashTableRetrieveWithHash(unsigned int fh,
-    signed short *key,
-    const int* table_entries,
-    const signed short* table_keys,
-    const int table_capacity) 
-{
-  int h = modHash(fh);
-  while (1) {
-    const int *e = table_entries + h;
-    
-    if (*e == -1) return -1;
-    
-    bool match = true;
-    for (int i = 0; i < kd && match; i++) {
-      match = (table_keys[(*e)*kd+i] == key[i]);
-    }
-    if (match) return *e;
-    h++;
-    if (h == table_capacity*2) h = 0;
-  }
-}
-
 template<int kd>
 __device__ static int hashTableRetrieve(signed short *key,
     const int* table_entries,
