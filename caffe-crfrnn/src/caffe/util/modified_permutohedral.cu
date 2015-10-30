@@ -200,7 +200,6 @@ template<int pd>
 __global__ static void splatCache(const int w, const int h, const int vd,
     const float *values,
     const MatrixEntry *matrix,
-    const int *table_entries,
     float *table_values)
 {
   const int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -442,8 +441,8 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
 
   // splat splits by color, so extend the y coordinate to our blocks to represent that
   blocks.y *= pd+1;
-  splatCache<pd><<<blocks, blockSize, BLOCK_SIZE*(vd+1)*sizeof(float)>>>(w, h, vd, in, matrix,
-    table->table_entries,
+  splatCache<pd><<<blocks, blockSize, BLOCK_SIZE*(vd+1)*sizeof(float)>>>(w, h, vd, in,
+    matrix,
     table_values);
   CUDA_POST_KERNEL_CHECK;
 
