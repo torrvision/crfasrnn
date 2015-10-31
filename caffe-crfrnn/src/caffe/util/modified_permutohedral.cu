@@ -291,19 +291,19 @@ __global__ static void blur(int n, float *newValues,
 
   if (offNp >= 0 && offNm >= 0) {
     for (int i = 0; i <= vd; i++) {
-      valOut[i] = (valNp[i] + (valMe[i]*2) + valNm[i])/4;
+      valOut[i] = (valNp[i] + (valMe[i]*2) + valNm[i])/2;
     }
   } else if (offNp >= 0) {
     for (int i = 0; i <= vd; i++) {
-      valOut[i] = (valNp[i] + (valMe[i]*2))/4;
+      valOut[i] = (valNp[i] + (valMe[i]*2))/2;
     }
   } else if (offNm >= 0) {
     for (int i = 0; i <= vd; i++) {
-      valOut[i] = (valNm[i] + (valMe[i]*2))/4;
+      valOut[i] = (valNm[i] + (valMe[i]*2))/2;
     }
   } else {
     for (int i = 0; i <= vd; i++) {
-      valOut[i] = valMe[i]*2;
+      valOut[i] = valMe[i];
     }
   }
 }
@@ -421,7 +421,8 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
 
   // splat splits by color, so extend the y coordinate to our blocks to represent that
   blocks.y *= pd+1;
-  splatCache<pd><<<blocks, blockSize, BLOCK_SIZE*(vd+1)*sizeof(float)>>>(w, h, vd, in,
+  splatCache<pd><<<blocks, blockSize, BLOCK_SIZE*(vd+1)*sizeof(float)>>>(w, h, vd,
+    in,
     matrix,
     table_values);
   CUDA_POST_KERNEL_CHECK;
