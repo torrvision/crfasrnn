@@ -31,6 +31,8 @@ protected:
 		}
 	};
 
+	bool init;
+	
 	std::vector<int> offset_, rank_;
 	std::vector<float> barycentric_;
 	std::vector<Neighbors> blur_neighbors_;
@@ -61,6 +63,12 @@ protected:
 	
 public:
 	ModifiedPermutohedral();
+	~ModifiedPermutohedral(){
+	  #ifndef CPU_ONLY
+        if(init)
+          CUDA_CHECK(cudaFree(matrix)); 
+        #endif	 
+	}
 	
 	void init (const float* features, int num_dimensions, int w, int h){
 	  switch (Caffe::mode()) {
@@ -69,6 +77,7 @@ public:
             break;
           #ifndef CPU_ONLY
           case Caffe::GPU:
+            init = true;
             init_gpu(features, num_dimensions, w, h); 
             break;
           #endif
@@ -104,6 +113,8 @@ public:
             LOG(FATAL) << "Unknown caffe mode.";
         }	  
 	}
+	
+	
 };
 }//namespace caffe
 #endif //CAFFE_MODIFIED_PERMUTOHEDRAL_HPP_
