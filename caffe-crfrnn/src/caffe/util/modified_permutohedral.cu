@@ -11,7 +11,7 @@ static void swapHashTableValues(float* oldValues, float *newValues, float* table
   CUDA_CHECK(cudaMemcpy(oldValues,table_values,size,cudaMemcpyDeviceToDevice));
   CUDA_CHECK(cudaMemcpy(table_values,newValues,size,cudaMemcpyDeviceToDevice));
   CUDA_CHECK(cudaMemcpy(newValues,oldValues,size,cudaMemcpyDeviceToDevice));
-  // Works but give poorer results TODO : find out why
+  // Works but give poorer results
   //oldValues = table_values;
   //table_values = newValues;
   //newValues = oldValues;
@@ -183,9 +183,9 @@ __global__ static void resetIndex(const int w, const int h,
   }
 }
 
-template<int pd>
+template<int pd, typename Dtype>
 __global__ static void splatCache(const int w, const int h, const int vd,
-    const float *values,
+    const Dtype *values,
     const MatrixEntry *matrix,
     float *table_values)
 {
@@ -203,7 +203,7 @@ __global__ static void splatCache(const int w, const int h, const int vd,
 
   if (!outOfBounds) {
 
-    const float *value = values + idx;
+    const Dtype *value = values + idx;
 
     MatrixEntry r = matrix[idx*(pd+1)+color];
 
@@ -213,7 +213,7 @@ __global__ static void splatCache(const int w, const int h, const int vd,
     myOffset = sharedOffsets[threadId] = r.index*(vd+1);
 
     for (int j = 0; j < vd; j++) {
-      myValue[j] = value[j*w*h]*r.weight;
+      myValue[j] = (float)value[j*w*h]*r.weight;
     }
     myValue[vd] = r.weight;
 
@@ -309,9 +309,9 @@ __global__ static void blur(int n, float *newValues,
   }
 }
 
-template<int pd>
+template<int pd, typename Dtype>
 __global__ static void slice(const int w, const int h, const int vd,
-    float *values,
+    Dtype *values,
     const MatrixEntry *matrix,
     float *table_values,
     bool add) {
@@ -415,14 +415,14 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable &table,
   int num_points = w*h ;
   float *table_values ;
   CUDA_CHECK(cudaMalloc((void**)&table_values, sizeof(float)*(vd+1)*num_points*(pd+1))) ;
-  caffe_gpu_set<Dtype>(num_points*(vd+1)*(pd+1), 0, table_values) ;
+  caffe_gpu_set<float>(num_points*(vd+1)*(pd+1), 0, table_values) ;
 
   dim3 blocks((w-1)/8+1, (h-1)/8+1, 1);
   dim3 blockSize(8, 8, 1);
 
   // splat splits by color, so extend the y coordinate to our blocks to represent that
   blocks.y *= pd+1;
-  splatCache<pd><<<blocks, blockSize, BLOCK_SIZE*(vd+1)*sizeof(float)>>>(w, h, vd,
+  splatCache<pd, Dtype><<<blocks, blockSize, BLOCK_SIZE*(vd+1)*sizeof(float)>>>(w, h, vd,
     in,
     matrix,
     table_values);
@@ -436,7 +436,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable &table,
   size_t size =  num_points*(pd+1)*(vd+1)*sizeof(float);
   CUDA_CHECK(cudaMalloc((void**)&(newValues), size));
   CUDA_CHECK(cudaMalloc((void**)&(oldValues), size));
-  caffe_gpu_set<Dtype>(num_points*(vd+1)*(pd+1), 0, newValues) ;
+  caffe_gpu_set<float>(num_points*(vd+1)*(pd+1), 0, newValues) ;
   for (int color = reverse?pd:0; color <= pd && color>=0; reverse?color--:color++) {
     blur<pd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1), newValues,
      matrix,
@@ -453,7 +453,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable &table,
 
   // slice
   blocks.y /= (pd+1);
-  slice<pd><<<blocks, blockSize, sizeof(float)*BLOCK_SIZE*vd>>>(w, h, vd, out, matrix, table_values, add);
+  slice<pd, Dtype><<<blocks, blockSize, sizeof(float)*BLOCK_SIZE*vd>>>(w, h, vd, out, matrix, table_values, add);
   CUDA_POST_KERNEL_CHECK;
 
   // Free memory
@@ -499,17 +499,19 @@ void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_s
 }
 
 void ModifiedPermutohedral::compute_gpu(double* out, const double* in, int value_size, bool reverse, bool add) const {
-//TODO : view that later on
-  /*switch(d_){
+  // Losing time by dynamically allocating memory but more general function
+  if(!is_init)
+    LOG(FATAL) << "Initialize lattice before doing any computing";
+  switch(d_){
     case 2:
-      gpu_compute<2, double>(out, in, &table, matrix, w_, h_, value_size, reverse, add);
+      gpu_compute<2, double>(out, in, table, matrix, w_, h_, value_size, reverse, add);
       break;
     case 5:
-      gpu_init<5, double>(features, &table, matrix, w, h);
+      gpu_compute<5, double>(out, in, table, matrix, w_, h_, value_size, reverse, add);
       break;
     default:
       LOG(FATAL) << "num_dimensions should be 2 or 5";
-  } */
+  }
 }
 
 }//namespace caffe
