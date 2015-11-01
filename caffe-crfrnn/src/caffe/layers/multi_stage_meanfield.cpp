@@ -25,6 +25,8 @@ template <typename Dtype>
 void MultiStageMeanfieldLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 
+  init_cpu = false;
+  init_gpu = false;
   const caffe::MultiStageMeanfieldParameter meanfield_param = this->layer_param_.multi_stage_meanfield_param();
 
   num_iterations_ = meanfield_param.num_iterations();
