@@ -31,7 +31,7 @@ protected:
 		}
 	};
 
-	bool init;
+	bool is_init;
 	
 	std::vector<int> offset_, rank_;
 	std::vector<float> barycentric_;
@@ -65,7 +65,7 @@ public:
 	ModifiedPermutohedral();
 	~ModifiedPermutohedral(){
 	  #ifndef CPU_ONLY
-        if(init)
+        if(is_init)
           CUDA_CHECK(cudaFree(matrix)); 
         #endif	 
 	}
@@ -77,8 +77,8 @@ public:
             break;
           #ifndef CPU_ONLY
           case Caffe::GPU:
-            init = true;
             init_gpu(features, num_dimensions, w, h); 
+            is_init = true;
             break;
           #endif
           default:
