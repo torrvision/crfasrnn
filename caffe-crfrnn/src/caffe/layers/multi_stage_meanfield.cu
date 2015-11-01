@@ -59,6 +59,8 @@ template <typename Dtype>
 void MultiStageMeanfieldLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 
+  if(init_cpu)
+    LOG(FATAL) << ("You initialize your network on CPU, please initialize it on GPU.");
   const Dtype* bottom_data = bottom[2]->gpu_data() ;
   split_layer_bottom_vec_[0] = bottom[0];
   split_layer_->Forward(split_layer_bottom_vec_, split_layer_top_vec_);
@@ -93,6 +95,9 @@ template<typename Dtype>
 void MultiStageMeanfieldLayer<Dtype>::Backward_gpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
+
+  if(init_cpu)
+    LOG(FATAL) << ("You initialize your network on CPU, please initialize it on GPU.");
 
   for (int i = (num_iterations_ - 1); i >= 0; --i) {
     meanfield_iterations_[i]->Backward_gpu();
