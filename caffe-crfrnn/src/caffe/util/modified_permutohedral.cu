@@ -484,6 +484,8 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
 
 void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_size, bool reverse, bool add) const {
   // Losing time by dynamically allocating memory but more general function
+  if(!is_init)
+    LOG(FATAL) << "Initialize lattice before doing any computing";
   switch(d_){
     case 2:
       gpu_compute<2, float>(out, in, table, matrix, w_, h_, value_size, reverse, add);
