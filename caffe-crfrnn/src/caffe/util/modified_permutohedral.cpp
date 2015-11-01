@@ -102,7 +102,7 @@ public:
 /***          ModifiedPermutohedral Lattice           ***/
 /************************************************/
 
-ModifiedPermutohedral::ModifiedPermutohedral():N_( 0 ), M_( 0 ), d_( 0 ), init(false) {
+ModifiedPermutohedral::ModifiedPermutohedral():N_( 0 ), M_( 0 ), d_( 0 ), is_init(false) {
 }
 #ifdef SSE_PERMUTOHEDRAL
 void ModifiedPermutohedral::init_cpu(const float* features, int num_dimensions, int num_points)
