@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "caffe/util/modified_permutohedral.hpp"
 #include "caffe/util/hash_helper.cu"
+#include "caffe/util/math_functions.hpp"
 
 namespace caffe {
 
@@ -405,7 +406,7 @@ void gpu_init(const float* features,
 }
 
 template<int pd, typename Dtype>
-void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
+void gpu_compute(Dtype* out, const Dtype* in, const HashTable &table,
   const MatrixEntry* matrix,
   int w, int h, int vd,
   bool reverse, bool add){
@@ -414,7 +415,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
   int num_points = w*h ;
   float *table_values ;
   CUDA_CHECK(cudaMalloc((void**)&table_values, sizeof(float)*(vd+1)*num_points*(pd+1))) ;
-  CUDA_CHECK(cudaMemset(table_values, 0, num_points*(vd+1)*(pd+1)*sizeof(float))) ;
+  caffe_gpu_set<Dtype>(num_points*(vd+1)*(pd+1), 0, table_values) ;
 
   dim3 blocks((w-1)/8+1, (h-1)/8+1, 1);
   dim3 blockSize(8, 8, 1);
@@ -435,13 +436,13 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable* table,
   size_t size =  num_points*(pd+1)*(vd+1)*sizeof(float);
   CUDA_CHECK(cudaMalloc((void**)&(newValues), size));
   CUDA_CHECK(cudaMalloc((void**)&(oldValues), size));
-  CUDA_CHECK(cudaMemset(newValues, 0, size));
+  caffe_gpu_set<Dtype>(num_points*(vd+1)*(pd+1), 0, newValues) ;
   for (int color = reverse?pd:0; color <= pd && color>=0; reverse?color--:color++) {
     blur<pd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1), newValues,
      matrix,
-     table->table_entries,
-     table->table_keys,
-     table->table_capacity,
+     table.table_entries,
+     table.table_keys,
+     table.table_capacity,
      table_values,
      color,
      vd);
@@ -471,10 +472,10 @@ void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, 
   N_ = w*h ;
   switch(num_dimensions){
     case 2:
-      gpu_init<2>(features, &table, matrix,  w, h);
+      gpu_init<2>(features, &table, matrix, w_, h_);
       break;
     case 5:
-      gpu_init<5>(features, &table, matrix, w, h);
+      gpu_init<5>(features, &table, matrix, w_, h_);
       break;
     default:
       LOG(FATAL) << "num_dimensions should be 2 or 5";
@@ -485,10 +486,10 @@ void ModifiedPermutohedral::compute_gpu(float* out, const float* in, int value_s
   // Losing time by dynamically allocating memory but more general function
   switch(d_){
     case 2:
-      gpu_compute<2, float>(out, in, &table, matrix, w_, h_, value_size, reverse, add);
+      gpu_compute<2, float>(out, in, table, matrix, w_, h_, value_size, reverse, add);
       break;
     case 5:
-      gpu_compute<5, float>(out, in, &table, matrix, w_, h_, value_size, reverse, add);
+      gpu_compute<5, float>(out, in, table, matrix, w_, h_, value_size, reverse, add);
       break;
     default:
       LOG(FATAL) << "num_dimensions should be 2 or 5";
