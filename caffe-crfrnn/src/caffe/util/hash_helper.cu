@@ -1,8 +1,4 @@
-#include <cstdlib>
-#include <cassert>
-#include <cstdio>
 #include "caffe/common.hpp"
-#include "caffe/util/device_alternate.hpp"
 
 #define modHash(n) ((n)%(2*table_capacity));
 
