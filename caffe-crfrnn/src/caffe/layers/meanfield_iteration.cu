@@ -133,20 +133,6 @@ void MeanfieldIteration<Dtype>::Backward_gpu() {
                           this->blobs_[1]->mutable_gpu_diff());
   }
 
-  /*Dtype* tmp = new Dtype[count_];
-  caffe_mul<Dtype>(count_, message_passing_.cpu_diff(), spatial_out_blob_.cpu_data(), tmp);
-
-  for (int c = 0; c < count_; ++c) {
-    (this->blobs_[0]->mutable_cpu_diff())[0] += tmp[c];
-  }
-
-  caffe_mul<Dtype>(count_, message_passing_.cpu_diff(), bilateral_out_blob_.cpu_data(), tmp);
-  for (int c = 0; c < count_; ++c) {
-    (this->blobs_[1]->mutable_cpu_diff())[0] += tmp[c];
-  }
-
-  delete[] tmp;*/
-
   // TODO: Check whether there's a way to improve the accuracy of this calculation.
   for (int n = 0; n < num_; ++n) {
     caffe_gpu_gemm<Dtype>(CblasTrans, CblasNoTrans, channels_, num_pixels_, channels_, (Dtype) 1.,
@@ -154,8 +140,6 @@ void MeanfieldIteration<Dtype>::Backward_gpu() {
                           (Dtype) 0.,
                           spatial_out_blob_.mutable_gpu_diff() + spatial_out_blob_.offset(n));
   }
-  //caffe_cpu_scale<Dtype>(count_, (this->blobs_[0]->cpu_data())[0],
-  //    message_passing_.cpu_diff(), spatial_out_blob_.mutable_cpu_diff());
 
   for (int n = 0; n < num_; ++n) {
     caffe_gpu_gemm<Dtype>(CblasTrans, CblasNoTrans, channels_, num_pixels_, channels_, (Dtype) 1.,
@@ -163,9 +147,6 @@ void MeanfieldIteration<Dtype>::Backward_gpu() {
                           (Dtype) 0.,
                           bilateral_out_blob_.mutable_gpu_diff() + bilateral_out_blob_.offset(n));
   }
-  //caffe_cpu_scale<Dtype>(count_, (this->blobs_[1]->cpu_data())[0],
-  //    message_passing_.cpu_diff(), bilateral_out_blob_.mutable_cpu_diff());
-
 
   //---------------------------- BP thru normalization --------------------------
   for (int n = 0; n < num_; ++n) {

@@ -15,7 +15,7 @@ class Segmenter(caffe.Net):
     def __init__(self, model_file, pretrained_file, 
                  gpu=False):
         """
-        Set mode before loading network
+        Set mode before loading network.
         """
         if gpu:
             self.set_mode_gpu()
@@ -25,8 +25,6 @@ class Segmenter(caffe.Net):
 
         caffe.Net.__init__(self, model_file, pretrained_file)
         self.set_phase_test()
-
-
 
     def predict(self, inputs):
         """

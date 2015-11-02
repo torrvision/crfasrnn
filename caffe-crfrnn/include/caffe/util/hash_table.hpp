@@ -1,15 +1,9 @@
 #ifndef CAFFE_HASH_TABLE_HPP
 #define CAFFE_HASH_TABLE_HPP
 
-#include <cstdlib>
-#include <vector>
-#include <cassert>
-#include <cstdio>
 #include "caffe/common.hpp"
-#include "caffe/util/device_alternate.hpp"
 
 //TODO : Might be better to unify this with already existing HashTable class
-
 namespace caffe{
 
 class HashTable

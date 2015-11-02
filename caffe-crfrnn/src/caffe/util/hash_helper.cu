@@ -54,15 +54,11 @@ __device__ static int hashTableInsert(unsigned int fh, signed short *key,
       return h;
     } else {
       // The cell is unlocked and has a key in it, check if it matches
-      //  #ifdef LINEAR_D_MEMORY
-      //if (matchKey<kd>(contents, key)) return h;
-      //  #else
       bool match = true;
       for (int i = 0; i < kd && match; i++) {
         match = (table_keys[contents*kd+i] == key[i]);
       }
       if (match) return h;
-      //  #endif       
     }
     // increment the bucket with wraparound
     h++;
