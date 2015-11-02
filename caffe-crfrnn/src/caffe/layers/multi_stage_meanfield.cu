@@ -113,7 +113,7 @@ void MultiStageMeanfieldLayer<Dtype>::Backward_gpu(
 
     if (this->param_propagate_down_[blob_id]) {
 
-      caffe_set(cur_blob->count(), Dtype(0), cur_blob->mutable_gpu_diff());
+      caffe_gpu_set(cur_blob->count(), Dtype(0), cur_blob->mutable_gpu_diff());
 
       for (int i = 0; i < num_iterations_; ++i) {
         const Dtype* diffs_to_add = meanfield_iterations_[i]->blobs()[blob_id]->gpu_diff();
