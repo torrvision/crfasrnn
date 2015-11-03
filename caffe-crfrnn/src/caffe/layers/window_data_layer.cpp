@@ -22,9 +22,10 @@
 //   'source' field specifies the window_file
 //   'crop_size' indicates the desired warped size
 
-#if CV_VERSION_MAJOR == 3
-const int CV_LOAD_IMAGE_COLOR = cv::IMREAD_COLOR;
-#endif
+// this causes error using opencv3
+//#if CV_VERSION_MAJOR == 3
+//const int CV_LOAD_IMAGE_COLOR = cv::IMREAD_COLOR;
+//#endif
 
 namespace caffe {
 
@@ -283,7 +284,7 @@ void WindowDataLayer<Dtype>::InternalThreadEntry() {
           image_database_cache_[window[WindowDataLayer<Dtype>::IMAGE_INDEX]];
         cv_img = DecodeDatumToCVMat(image_cached.second);
       } else {
-        cv_img = cv::imread(image.first, CV_LOAD_IMAGE_COLOR);
+        cv_img = cv::imread(image.first, 1);
         if (!cv_img.data) {
           LOG(ERROR) << "Could not open or find file " << image.first;
           return;
