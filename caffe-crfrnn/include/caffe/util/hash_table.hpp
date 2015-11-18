@@ -35,6 +35,20 @@ class HashTable
       #endif // CPU_ONLY
     }
     
+    void emptyHashTable(const int capacity, const int kd){
+      #ifndef CPU_ONLY
+      // TODO? use symbol to go in constant memory instead
+      // Initialize table_capacity
+      table_capacity = (unsigned int)capacity ;
+      
+      // Reset table_entries
+      CUDA_CHECK(cudaMemset(table_entries, -1, 2*capacity*sizeof(int)));
+      
+      // Resettable_keys
+      CUDA_CHECK(cudaMemset(table_keys, 0, capacity*kd*sizeof(signed short)));    
+      #endif // CPU_ONLY   
+    }
+    
     ~HashTable(){
       #ifndef CPU_ONLY
       if(create){

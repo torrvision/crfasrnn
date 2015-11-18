@@ -464,8 +464,15 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable &table,
 
 void ModifiedPermutohedral::init_gpu(const float* features, int num_dimensions, int w, int h) {
   //Initialize Hash table
-  table.createHashTable(w*h*(num_dimensions+1), num_dimensions);
-  CUDA_CHECK(cudaMalloc((void **)&matrix, sizeof(MatrixEntry)*(w*h*(num_dimensions+1))));
+  if(!is_init){
+    table.createHashTable(w*h*(num_dimensions+1), num_dimensions);
+    CUDA_CHECK(cudaMalloc((void **)&matrix, sizeof(MatrixEntry)*(w*h*(num_dimensions+1))));
+  } else {
+    table.emptyHashTable(w*h*(num_dimensions+1), num_dimensions);
+    // Temporary fix
+    CUDA_CHECK(cudaFree(matrix));
+    CUDA_CHECK(cudaMalloc((void **)&matrix, sizeof(MatrixEntry)*(w*h*(num_dimensions+1))));
+  }
   w_ = w ;
   h_ = h ;
   d_ = num_dimensions ;
