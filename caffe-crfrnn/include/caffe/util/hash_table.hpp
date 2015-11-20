@@ -35,7 +35,7 @@ class HashTable
       #endif // CPU_ONLY
     }
     
-    void emptyHashTable(const int capacity, const int kd){
+    void resetHashTable(const int capacity, const int kd){
       #ifndef CPU_ONLY
       // TODO? use symbol to go in constant memory instead
       // Initialize table_capacity
