@@ -438,7 +438,7 @@ void gpu_compute(Dtype* out, const Dtype* in, const HashTable &table,
   CUDA_CHECK(cudaMalloc((void**)&(oldValues), size));
   caffe_gpu_set<float>(num_points*(vd+1)*(pd+1), 0, newValues) ;
   for (int color = reverse?pd:0; color <= pd && color>=0; reverse?color--:color++) {
-    blur<pd><<<cleanBlocks, cleanBlockSize>>>(2*num_points*(pd+1), newValues,
+    blur<pd><<<cleanBlocks, cleanBlockSize>>>(num_points*(pd+1), newValues,
      matrix,
      table.table_entries,
      table.table_keys,
