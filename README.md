@@ -121,7 +121,7 @@ blacklist rivatv
 sudo apt-get remove --purge nvidia*
 ```
 
-When you restart your PC, before loging in, try "Ctrl + Alt + F1" to switch to a text-based login. Try:
+When you restart your PC, before logging in, try "Ctrl + Alt + F1" to switch to a text-based login. Try:
 ```
 sudo service lightdm stop
 chmod +x cuda*.run
@@ -170,7 +170,7 @@ Change the directory to ``python-scripts``. First download the model that includ
 ```
 sh download_trained_model.sh
 ```
-Atlernatively, you can also get the model by directly clicking the link in ``python-scripts/README.md``.
+Alternatively, you can also get the model by directly clicking the link in ``python-scripts/README.md``.
 
 To run the demo, execute:
 ```
@@ -185,7 +185,7 @@ Change the directory to ``matlab-scripts``. First download the model that includ
 ```
 sh download_trained_model.sh
 ```
-Atlernatively, you can also get the model by directly clicking the link in ``matlab-scripts/README.md``.
+Alternatively, you can also get the model by directly clicking the link in ``matlab-scripts/README.md``.
 
 Load your MATLAB application and run crfrnn_demo.m.
 
@@ -242,4 +242,4 @@ hyenal kindly provided a purely GPU version of CRF-RNN. This would lead to consi
 Let us know if we have missed any other works from third parties.
 
 
-For more information about CRF-RNN please vist the project website http://crfasrnn.torr.vision. Contact: <crfasrnn@gmail.com>
+For more information about CRF-RNN please visit the project website http://crfasrnn.torr.vision. Contact: <crfasrnn@gmail.com>
