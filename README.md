@@ -47,7 +47,7 @@ If you use this code/model for your research, please cite the following papers:
 
 
 ## How to use the CRF-RNN layer
-CRF-RNN has been developed as a custom Caffe layer named MultiStageMeanfieldLayer. Usage of this layer in the model definition prototxt file looks the following. Check the matlab-scripts or the python-scripts folder for more detailed examples.
+CRF-RNN has been developed as a custom Caffe layer named MultiStageMeanfieldLayer. Usage of this layer in the model definition prototxt file looks the following. Check the `matlab-scripts` or the `python-scripts` folder for more detailed examples.
 ```
 # This is part of FCN, coarse is a blob coming from FCN
 layer { type: 'Crop' name: 'crop' bottom: 'bigscore' bottom: 'data' top: 'coarse' }
@@ -108,7 +108,7 @@ You might need to blacklist some modules so that they do not interfere with the 
 ```
 sudo apt-get install freeglut3-dev build-essential libx11-dev libxmu-dev libxi-dev libgl1-mesa-glx libglu1-mesa libglu1-mesa-dev
 ``` 
-open /etc/modprobe.d/blacklist.conf and add:
+open `/etc/modprobe.d/blacklist.conf` and add:
 ```
 blacklist amd76x_edac
 blacklist vga16fb
@@ -178,7 +178,7 @@ python crfasrnn_demo.py
 ```
 You will get an output.png image.
 
-To use your own images, replace "input.jpg" in the crfasrnn_demo.py file.
+To use your own images, replace "input.jpg" in the ``crfasrnn_demo.py`` file.
 
 #### MATLAB users:
 Change the directory to ``matlab-scripts``. First download the model that includes the trained weights. In Linux, this can be done by:
@@ -187,9 +187,9 @@ sh download_trained_model.sh
 ```
 Alternatively, you can also get the model by directly clicking the link in ``matlab-scripts/README.md``.
 
-Load your MATLAB application and run crfrnn_demo.m.
+Load your MATLAB application and run ``crfrnn_demo.m``.
 
-To use your own images, just replace "input.jpg" in the crfrnn_demo.m file.
+To use your own images, just replace "input.jpg" in the ``crfrnn_demo.m`` file.
 
 You can also find a part of our model in [MatConvNet](http://www.vlfeat.org/matconvnet/pretrained/).
 
@@ -205,14 +205,14 @@ If you would like to train CRF-RNN on other datasets, please follow the piecewis
 
 Notice that the current deploy.prototxt file we have provided is tailored for PASCAL VOC Challenge. This dataset contains 21 class labels including background. You should change the num_output in the corresponding layer if you would like to finetune our model for other datasets. Also, the deconvolution layer in current code does not allow initializing the parameters through prototxt. If you change the num_output there, you should manually re-initialize the parameters in the caffemodel file.
 
-See examples/segmentationcrfasrnn for more information.
+See ``examples/segmentationcrfasrnn`` for more information.
 
 
 #### Why predictions are all black?
 This could happen if you change layer names in the model definition prototxt, causing the weights not to load correctly. This could also happen if you change the number of outputs in deconvolution layer in the prototxt but not initialize the deconvolution layer properly. 
 
 #### MultiStageMeanfield causes a segfault?
-This error usually occurs when you do not place the spatial.par and bilateral.par files in the script path.
+This error usually occurs when you do not place the ``spatial.par`` and ``bilateral.par`` files in the script path.
 
 #### Python training script from third parties
 We would like to thank martinkersner and MasazI for providing Python training scripts for CRF-RNN. 
@@ -221,7 +221,7 @@ We would like to thank martinkersner and MasazI for providing Python training sc
 2. [MasazI's scripts](https://github.com/MasazI/crfasrnn-training)
 
 #### Merge with the upstream caffe
-It is possible to integrate the CRF-RNN code into upstream Caffe. However, due to the change of the crop layer, the caffemodel we provided might require extra training to provide the same accuracy. mtourne Kindly provided a version that merged the code with upstream caffe. 
+It is possible to integrate the CRF-RNN code into upstream Caffe. However, due to the change of the crop layer, the caffemodel we provided might require extra training to provide the same accuracy. mtourne kindly provided a version that merged the code with upstream caffe. 
 
 1. [mtourne upstream version with CRFRNN](https://github.com/mtourne/crfasrnn)
 
