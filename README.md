@@ -5,7 +5,8 @@
 
 <b>Live demo:</b> [http://crfasrnn.torr.vision](http://crfasrnn.torr.vision) <br/>
 <b>Updates:</b>
-* [Keras/Tensorflow](https://github.com/sadeepj/crfasrnn_keras) version is now available. <br/>
+* [PyTorch version of CRF-RNN](https://github.com/sadeepj/crfasrnn_pytorch) is now available. <br/>
+* [Keras/Tensorflow version of CRF-RNN](https://github.com/sadeepj/crfasrnn_keras) is now available. <br/>
 * We now support the latest Caffe future version. <br/>
 
 
