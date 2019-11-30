@@ -1,13 +1,13 @@
 # CRF-RNN for Semantic Image Segmentation
+
+<b>Live demo:</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [http://crfasrnn.torr.vision](http://crfasrnn.torr.vision) <br/>
+<b>PyTorch version:</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[https://github.com/sadeepj/crfasrnn_pytorch](https://github.com/sadeepj/crfasrnn_pytorch)<br/>
+<b>Tensorflow/Keras version:</b> [http://github.com/sadeepj/crfasrnn_keras](http://github.com/sadeepj/crfasrnn_keras)<br/>
+
 ![sample](sample.png)
 
 [![License (3-Clause BSD)](https://img.shields.io/badge/license-BSD%203--Clause-brightgreen.svg?style=flat-square)](https://github.com/torrvision/crfasrnn/blob/master/LICENSE)
 
-<b>Live demo:</b> [http://crfasrnn.torr.vision](http://crfasrnn.torr.vision) <br/>
-<b>Updates:</b>
-* [PyTorch version of CRF-RNN](https://github.com/sadeepj/crfasrnn_pytorch) is now available. <br/>
-* [Keras/Tensorflow version of CRF-RNN](https://github.com/sadeepj/crfasrnn_keras) is now available. <br/>
-* We now support the latest Caffe future version. <br/>
 
 
 This package contains code for the "CRF-RNN" semantic image segmentation method, published in the ICCV 2015 paper [Conditional Random Fields as Recurrent Neural Networks](http://www.robots.ox.ac.uk/~szheng/papers/CRFasRNN.pdf). This paper was initially described in an [arXiv tech report](http://arxiv.org/abs/1502.03240). The online demonstration based on this code won the Best Demo Prize at ICCV 2015. Our software is built on top of the [Caffe](http://caffe.berkeleyvision.org/) deep learning library. The current version was developed by:
